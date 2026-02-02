@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
@@ -5,8 +6,26 @@ import { Learn } from './pages/Learn'
 import { Quiz } from './pages/Quiz'
 import { Notebook } from './pages/Notebook'
 import { Profile } from './pages/Profile'
+import { unlockAudio } from './lib/tts'
 
 function App() {
+  // 解锁iOS音频（需要用户交互）
+  useEffect(() => {
+    const handleInteraction = () => {
+      unlockAudio()
+      // 只需要解锁一次
+      document.removeEventListener('touchstart', handleInteraction)
+      document.removeEventListener('click', handleInteraction)
+    }
+
+    document.addEventListener('touchstart', handleInteraction, { once: true })
+    document.addEventListener('click', handleInteraction, { once: true })
+
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction)
+      document.removeEventListener('click', handleInteraction)
+    }
+  }, [])
   return (
     <BrowserRouter>
       <Routes>
