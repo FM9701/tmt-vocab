@@ -16,13 +16,20 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
   const progress = getProgress(word.id)
 
   const speak = useCallback(() => {
-    // 取消之前的发音
     speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(word.word)
     utterance.lang = 'en-US'
     utterance.rate = 0.9
     speechSynthesis.speak(utterance)
   }, [word.word])
+
+  const speakExample = useCallback(() => {
+    speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(word.example)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.85
+    speechSynthesis.speak(utterance)
+  }, [word.example])
 
   // 切换单词时自动发音
   useEffect(() => {
@@ -127,7 +134,18 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
 
               <div>
                 <p className="text-[var(--color-text-muted)] text-xs mb-1">例句</p>
-                <p className="italic">{word.example}</p>
+                <div className="flex items-start gap-2">
+                  <p className="italic flex-1">{word.example}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      speakExample()
+                    }}
+                    className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary-light)] shrink-0"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </div>
                 <p className="text-[var(--color-text-muted)]">{word.exampleCn}</p>
               </div>
 

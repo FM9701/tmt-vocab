@@ -27,6 +27,14 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
     speechSynthesis.speak(utterance)
   }, [word.word])
 
+  const speakExample = useCallback(() => {
+    speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(word.example)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.85
+    speechSynthesis.speak(utterance)
+  }, [word.example])
+
   useEffect(() => {
     // Generate options
     const wrongOptions = vocabulary
@@ -135,7 +143,15 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
             <p className="font-medium mb-2">
               {options.find(o => o.id === selectedId)?.isCorrect ? '正确！' : '错误'}
             </p>
-            <p className="text-sm text-[var(--color-text-muted)]">{word.example}</p>
+            <div className="flex items-start gap-2">
+              <p className="text-sm text-[var(--color-text-muted)] flex-1">{word.example}</p>
+              <button
+                onClick={speakExample}
+                className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary-light)] shrink-0"
+              >
+                <Volume2 size={16} />
+              </button>
+            </div>
           </div>
         </div>
       )}
