@@ -1,0 +1,822 @@
+import type { Word } from '../types'
+
+export const vocabulary: Word[] = [
+  // ========== 财报与估值 (earnings) ==========
+  {
+    id: 'e001',
+    word: 'revenue',
+    pronunciation: '/ˈrevənjuː/',
+    partOfSpeech: 'noun',
+    definition: 'Income generated from normal business operations',
+    definitionCn: '营业收入，营收',
+    example: 'Apple reported quarterly revenue of $119.6 billion, up 2% year over year.',
+    exampleCn: '苹果公司报告季度营收为1196亿美元，同比增长2%。',
+    context: '财报中最基础的指标，通常在财报开头就会提到。常见搭配：revenue growth, revenue guidance, revenue beat/miss',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'e002',
+    word: 'gross margin',
+    pronunciation: '/ɡroʊs ˈmɑːrdʒɪn/',
+    partOfSpeech: 'noun',
+    definition: 'Revenue minus cost of goods sold, expressed as a percentage of revenue',
+    definitionCn: '毛利率',
+    example: 'NVIDIA\'s gross margin expanded to 76%, driven by strong data center demand.',
+    exampleCn: 'NVIDIA的毛利率扩张至76%，受益于强劲的数据中心需求。',
+    context: '衡量公司产品盈利能力的核心指标。半导体和软件公司通常有较高的毛利率。',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'e003',
+    word: 'operating income',
+    pronunciation: '/ˈɒpəreɪtɪŋ ˈɪnkʌm/',
+    partOfSpeech: 'noun',
+    definition: 'Profit from business operations after deducting operating expenses',
+    definitionCn: '营业利润/经营利润',
+    example: 'Microsoft\'s operating income grew 25% to $27.9 billion.',
+    exampleCn: '微软的营业利润增长25%至279亿美元。',
+    context: '也叫EBIT (Earnings Before Interest and Taxes)，反映主营业务的盈利能力。',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'e004',
+    word: 'EPS',
+    pronunciation: '/iː piː ˈes/',
+    partOfSpeech: 'noun',
+    definition: 'Earnings Per Share - net income divided by outstanding shares',
+    definitionCn: '每股收益/每股盈利',
+    example: 'Amazon beat EPS estimates by $0.15, reporting $1.43 vs. $1.28 expected.',
+    exampleCn: '亚马逊每股收益超预期0.15美元，实际1.43美元 vs 预期1.28美元。',
+    context: '最常用的盈利指标，分析师预测的核心。分为GAAP EPS和Non-GAAP EPS。',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'e005',
+    word: 'guidance',
+    pronunciation: '/ˈɡaɪdəns/',
+    partOfSpeech: 'noun',
+    definition: 'Company\'s forecast or outlook for future financial performance',
+    definitionCn: '业绩指引/前瞻指引',
+    example: 'Meta raised full-year guidance, citing strong advertising momentum.',
+    exampleCn: 'Meta上调全年业绩指引，原因是广告业务势头强劲。',
+    context: '财报中最受关注的部分之一，直接影响股价走势。常见：raise/lower/maintain guidance',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'e006',
+    word: 'free cash flow',
+    pronunciation: '/friː kæʃ floʊ/',
+    partOfSpeech: 'noun',
+    definition: 'Cash generated after accounting for capital expenditures',
+    definitionCn: '自由现金流',
+    example: 'Alphabet generated $22 billion in free cash flow this quarter.',
+    exampleCn: '本季度Alphabet产生了220亿美元的自由现金流。',
+    context: '衡量公司现金创造能力的重要指标，常用于估值 (DCF模型)。缩写FCF。',
+    category: 'earnings',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'e007',
+    word: 'EBITDA',
+    pronunciation: '/iːˈbɪtdɑː/',
+    partOfSpeech: 'noun',
+    definition: 'Earnings Before Interest, Taxes, Depreciation and Amortization',
+    definitionCn: '息税折旧摊销前利润',
+    example: 'The company trades at 15x EV/EBITDA, below industry average.',
+    exampleCn: '该公司EV/EBITDA为15倍，低于行业平均水平。',
+    context: '常用于比较不同资本结构公司的盈利能力，是并购估值的常用指标。',
+    category: 'earnings',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'e008',
+    word: 'diluted shares',
+    pronunciation: '/daɪˈluːtɪd ʃerz/',
+    partOfSpeech: 'noun',
+    definition: 'Total shares including potential shares from options and convertibles',
+    definitionCn: '稀释后股份/摊薄股本',
+    example: 'Diluted shares outstanding increased 2% due to stock-based compensation.',
+    exampleCn: '由于股权激励，稀释后流通股增加了2%。',
+    context: '计算稀释EPS时使用，考虑了期权、可转债等潜在股份。',
+    category: 'earnings',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'e009',
+    word: 'beat and raise',
+    pronunciation: '/biːt ənd reɪz/',
+    partOfSpeech: 'phrase',
+    definition: 'When a company exceeds expectations and raises future guidance',
+    definitionCn: '超预期并上调指引',
+    example: 'NVIDIA delivered another beat and raise quarter, sending shares up 8%.',
+    exampleCn: 'NVIDIA再次交出超预期并上调指引的季报，股价上涨8%。',
+    context: '投资者最喜欢看到的财报结果，通常会推动股价上涨。',
+    category: 'earnings',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'e010',
+    word: 'year-over-year',
+    pronunciation: '/jɪr ˈoʊvər jɪr/',
+    partOfSpeech: 'adjective',
+    definition: 'Comparing a metric to the same period in the previous year',
+    definitionCn: '同比',
+    example: 'Cloud revenue increased 29% year-over-year to $33.7 billion.',
+    exampleCn: '云收入同比增长29%至337亿美元。',
+    context: '最常用的比较方式，缩写YoY或Y/Y。另有quarter-over-quarter (QoQ) 环比。',
+    category: 'earnings',
+    difficulty: 'beginner'
+  },
+
+  // ========== AI/ML技术 (ai-ml) ==========
+  {
+    id: 'a001',
+    word: 'large language model',
+    pronunciation: '/lɑːrdʒ ˈlæŋɡwɪdʒ ˈmɒdl/',
+    partOfSpeech: 'noun',
+    definition: 'AI model trained on vast text data to understand and generate language',
+    definitionCn: '大语言模型',
+    example: 'GPT-4 is a multimodal large language model developed by OpenAI.',
+    exampleCn: 'GPT-4是OpenAI开发的多模态大语言模型。',
+    context: '当前AI热潮的核心技术，缩写LLM。代表公司：OpenAI, Anthropic, Google。',
+    category: 'ai-ml',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'a002',
+    word: 'inference',
+    pronunciation: '/ˈɪnfərəns/',
+    partOfSpeech: 'noun',
+    definition: 'The process of running a trained model to make predictions',
+    definitionCn: '推理',
+    example: 'NVIDIA dominates the AI inference market with its H100 GPUs.',
+    exampleCn: 'NVIDIA凭借H100 GPU主导AI推理市场。',
+    context: '与training（训练）相对。推理成本是AI应用商业化的关键考量。',
+    category: 'ai-ml',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'a003',
+    word: 'fine-tuning',
+    pronunciation: '/faɪn ˈtuːnɪŋ/',
+    partOfSpeech: 'noun',
+    definition: 'Adapting a pre-trained model for specific tasks with additional training',
+    definitionCn: '微调',
+    example: 'Many enterprises fine-tune open-source models for their specific use cases.',
+    exampleCn: '许多企业针对特定场景对开源模型进行微调。',
+    context: '相比从头训练成本更低，是企业采用AI的常见方式。',
+    category: 'ai-ml',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'a004',
+    word: 'transformer',
+    pronunciation: '/trænsˈfɔːrmər/',
+    partOfSpeech: 'noun',
+    definition: 'Neural network architecture using self-attention mechanisms',
+    definitionCn: 'Transformer架构',
+    example: 'The transformer architecture revolutionized NLP and now powers most LLMs.',
+    exampleCn: 'Transformer架构革新了NLP，现在是大多数LLM的基础。',
+    context: '2017年Google论文"Attention is All You Need"提出，是现代AI的基石。',
+    category: 'ai-ml',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'a005',
+    word: 'GPU cluster',
+    pronunciation: '/dʒiː piː juː ˈklʌstər/',
+    partOfSpeech: 'noun',
+    definition: 'Multiple GPUs connected together for parallel AI computing',
+    definitionCn: 'GPU集群',
+    example: 'Meta is building a massive GPU cluster with 350,000 H100s.',
+    exampleCn: 'Meta正在建设一个拥有35万块H100的大型GPU集群。',
+    context: '训练大模型需要大规模GPU集群，是科技巨头的重要资本支出。',
+    category: 'ai-ml',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'a006',
+    word: 'token',
+    pronunciation: '/ˈtoʊkən/',
+    partOfSpeech: 'noun',
+    definition: 'Basic unit of text processed by language models',
+    definitionCn: 'Token/词元',
+    example: 'GPT-4 Turbo supports up to 128K tokens in context window.',
+    exampleCn: 'GPT-4 Turbo支持最多128K个token的上下文窗口。',
+    context: 'LLM的计费和能力单位。一个英文单词约1-2个token，中文每字约2个token。',
+    category: 'ai-ml',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'a007',
+    word: 'hallucination',
+    pronunciation: '/həˌluːsɪˈneɪʃn/',
+    partOfSpeech: 'noun',
+    definition: 'When AI generates plausible but factually incorrect information',
+    definitionCn: '幻觉/编造',
+    example: 'Reducing hallucinations remains a key challenge for enterprise AI adoption.',
+    exampleCn: '减少幻觉仍是企业采用AI的关键挑战。',
+    context: 'LLM的主要问题之一，影响可靠性。RAG是常见的缓解方案。',
+    category: 'ai-ml',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'a008',
+    word: 'RAG',
+    pronunciation: '/ræɡ/',
+    partOfSpeech: 'noun',
+    definition: 'Retrieval-Augmented Generation - combining LLMs with external data retrieval',
+    definitionCn: '检索增强生成',
+    example: 'Most enterprise AI applications use RAG to ground responses in company data.',
+    exampleCn: '大多数企业AI应用使用RAG，使回答基于公司数据。',
+    context: '企业AI落地的主流架构，结合向量数据库使用。',
+    category: 'ai-ml',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'a009',
+    word: 'multimodal',
+    pronunciation: '/ˌmʌltiˈmoʊdl/',
+    partOfSpeech: 'adjective',
+    definition: 'AI systems that can process multiple types of data (text, images, audio)',
+    definitionCn: '多模态',
+    example: 'GPT-4V is a multimodal model capable of understanding images.',
+    exampleCn: 'GPT-4V是一个能够理解图像的多模态模型。',
+    context: '2024年AI发展趋势，从纯文本向多模态演进。',
+    category: 'ai-ml',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'a010',
+    word: 'agentic AI',
+    pronunciation: '/eɪˈdʒentɪk eɪ aɪ/',
+    partOfSpeech: 'noun',
+    definition: 'AI systems that can autonomously plan and execute multi-step tasks',
+    definitionCn: 'Agent AI/智能体',
+    example: 'Agentic AI represents the next frontier, enabling autonomous workflows.',
+    exampleCn: 'Agent AI代表下一个前沿，能够实现自主工作流。',
+    context: '2024-2025年AI热点，从问答向自主执行任务演进。代表：AutoGPT, Claude Agents。',
+    category: 'ai-ml',
+    difficulty: 'advanced'
+  },
+
+  // ========== 半导体供应链 (semiconductor) ==========
+  {
+    id: 's001',
+    word: 'foundry',
+    pronunciation: '/ˈfaʊndri/',
+    partOfSpeech: 'noun',
+    definition: 'Company that manufactures chips designed by other companies',
+    definitionCn: '晶圆代工厂',
+    example: 'TSMC is the world\'s largest foundry, producing chips for Apple and NVIDIA.',
+    exampleCn: 'TSMC是全球最大的晶圆代工厂，为苹果和NVIDIA生产芯片。',
+    context: '半导体产业链核心环节。主要玩家：TSMC, Samsung, Intel Foundry。',
+    category: 'semiconductor',
+    difficulty: 'beginner'
+  },
+  {
+    id: 's002',
+    word: 'fabless',
+    pronunciation: '/ˈfæbləs/',
+    partOfSpeech: 'adjective',
+    definition: 'Chip companies that design but don\'t manufacture their own chips',
+    definitionCn: '无晶圆厂/无厂半导体',
+    example: 'NVIDIA is a fabless company that relies on TSMC for manufacturing.',
+    exampleCn: 'NVIDIA是一家无晶圆厂公司，依赖TSMC进行制造。',
+    context: '与IDM（Integrated Device Manufacturer）相对。fabless模式资产更轻。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's003',
+    word: 'process node',
+    pronunciation: '/ˈprɒses noʊd/',
+    partOfSpeech: 'noun',
+    definition: 'Manufacturing technology generation, measured in nanometers',
+    definitionCn: '制程节点/工艺节点',
+    example: 'TSMC is ramping up 3nm production, with 2nm expected in 2025.',
+    exampleCn: 'TSMC正在提升3nm产能，2nm预计于2025年量产。',
+    context: '数字越小越先进。当前先进制程：5nm, 3nm, 2nm。但nm数字已非实际尺寸。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's004',
+    word: 'wafer',
+    pronunciation: '/ˈweɪfər/',
+    partOfSpeech: 'noun',
+    definition: 'Thin slice of silicon used as substrate for chip manufacturing',
+    definitionCn: '晶圆',
+    example: 'A single 300mm wafer can yield hundreds of chips.',
+    exampleCn: '一片300mm晶圆可以生产数百颗芯片。',
+    context: '半导体制造的基础材料。主流尺寸：200mm, 300mm。成本以wafer计价。',
+    category: 'semiconductor',
+    difficulty: 'beginner'
+  },
+  {
+    id: 's005',
+    word: 'yield',
+    pronunciation: '/jiːld/',
+    partOfSpeech: 'noun',
+    definition: 'Percentage of functional chips produced from a wafer',
+    definitionCn: '良率',
+    example: 'Early 3nm yields were low, but have improved to over 80%.',
+    exampleCn: '早期3nm良率较低，但已提升至80%以上。',
+    context: '良率直接影响成本和产能。新制程初期良率通常较低。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's006',
+    word: 'HBM',
+    pronunciation: '/eɪtʃ biː em/',
+    partOfSpeech: 'noun',
+    definition: 'High Bandwidth Memory - stacked memory for AI accelerators',
+    definitionCn: '高带宽内存',
+    example: 'SK Hynix dominates HBM supply for NVIDIA\'s AI GPUs.',
+    exampleCn: 'SK海力士主导NVIDIA AI GPU的HBM供应。',
+    context: 'AI芯片的关键组件，供不应求。主要供应商：SK Hynix, Samsung, Micron。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's007',
+    word: 'EUV',
+    pronunciation: '/iː juː viː/',
+    partOfSpeech: 'noun',
+    definition: 'Extreme Ultraviolet Lithography - advanced chip manufacturing technology',
+    definitionCn: '极紫外光刻',
+    example: 'ASML\'s EUV machines are essential for sub-7nm chip production.',
+    exampleCn: 'ASML的EUV光刻机是7nm以下芯片生产的必需设备。',
+    context: 'ASML垄断EUV设备市场，是半导体产业链的关键瓶颈。',
+    category: 'semiconductor',
+    difficulty: 'advanced'
+  },
+  {
+    id: 's008',
+    word: 'leading edge',
+    pronunciation: '/ˈliːdɪŋ edʒ/',
+    partOfSpeech: 'noun',
+    definition: 'The most advanced chip manufacturing technology available',
+    definitionCn: '先进制程/尖端制程',
+    example: 'Only TSMC and Samsung can produce leading-edge chips at scale.',
+    exampleCn: '只有TSMC和三星能够大规模生产先进制程芯片。',
+    context: '与legacy/mature node（成熟制程）相对。先进制程毛利率更高。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's009',
+    word: 'tape-out',
+    pronunciation: '/teɪp aʊt/',
+    partOfSpeech: 'noun',
+    definition: 'Final step of chip design before sending to manufacturing',
+    definitionCn: '流片',
+    example: 'The company announced a successful tape-out of its next-gen AI chip.',
+    exampleCn: '该公司宣布其下一代AI芯片成功流片。',
+    context: '芯片设计的里程碑事件，意味着设计完成可以开始制造。',
+    category: 'semiconductor',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 's010',
+    word: 'supply constraint',
+    pronunciation: '/səˈplaɪ kənˈstreɪnt/',
+    partOfSpeech: 'noun',
+    definition: 'Limitation in production capacity affecting product availability',
+    definitionCn: '供应限制/产能瓶颈',
+    example: 'NVIDIA cited supply constraints as the key factor limiting AI GPU shipments.',
+    exampleCn: 'NVIDIA表示供应限制是制约AI GPU出货的关键因素。',
+    context: 'AI需求激增导致GPU、HBM等普遍供不应求。',
+    category: 'semiconductor',
+    difficulty: 'beginner'
+  },
+
+  // ========== 云计算/SaaS (cloud-saas) ==========
+  {
+    id: 'c001',
+    word: 'ARR',
+    pronunciation: '/eɪ ɑːr ɑːr/',
+    partOfSpeech: 'noun',
+    definition: 'Annual Recurring Revenue - yearly value of subscription revenue',
+    definitionCn: '年度经常性收入',
+    example: 'Snowflake reached $3 billion in product ARR, up 32% year-over-year.',
+    exampleCn: 'Snowflake产品ARR达到30亿美元，同比增长32%。',
+    context: 'SaaS公司最重要的指标之一，反映可预测收入。另有MRR（月度）。',
+    category: 'cloud-saas',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'c002',
+    word: 'net retention rate',
+    pronunciation: '/net rɪˈtenʃn reɪt/',
+    partOfSpeech: 'noun',
+    definition: 'Revenue retained from existing customers including expansion and churn',
+    definitionCn: '净收入留存率',
+    example: 'CrowdStrike maintained a net retention rate of 120%, showing strong upsell.',
+    exampleCn: 'CrowdStrike保持120%的净收入留存率，显示强劲的增购能力。',
+    context: '超过100%表示现有客户收入在增长。也叫NRR或NDR（Net Dollar Retention）。',
+    category: 'cloud-saas',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'c003',
+    word: 'consumption-based',
+    pronunciation: '/kənˈsʌmpʃn beɪst/',
+    partOfSpeech: 'adjective',
+    definition: 'Pricing model where customers pay based on actual usage',
+    definitionCn: '按量付费/消费模式',
+    example: 'Snowflake\'s consumption-based model means revenue varies with customer usage.',
+    exampleCn: 'Snowflake的消费模式意味着收入随客户使用量变化。',
+    context: '与订阅模式（subscription）相对，收入可预测性较低但增长潜力大。',
+    category: 'cloud-saas',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'c004',
+    word: 'RPO',
+    pronunciation: '/ɑːr piː oʊ/',
+    partOfSpeech: 'noun',
+    definition: 'Remaining Performance Obligations - contracted revenue not yet recognized',
+    definitionCn: '剩余履约义务',
+    example: 'Microsoft\'s commercial RPO grew 21% to $259 billion.',
+    exampleCn: '微软商业RPO增长21%至2590亿美元。',
+    context: '反映未来收入可见性，是分析SaaS公司的重要前瞻指标。',
+    category: 'cloud-saas',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'c005',
+    word: 'Rule of 40',
+    pronunciation: '/ruːl əv ˈfɔːrti/',
+    partOfSpeech: 'noun',
+    definition: 'Growth rate plus profit margin should exceed 40% for healthy SaaS',
+    definitionCn: '40法则',
+    example: 'The company scores 55 on the Rule of 40 with 25% growth and 30% margin.',
+    exampleCn: '该公司40法则得分55（25%增长+30%利润率）。',
+    context: 'SaaS公司健康度的经验法则，平衡增长和盈利。',
+    category: 'cloud-saas',
+    difficulty: 'advanced'
+  },
+  {
+    id: 'c006',
+    word: 'hyperscaler',
+    pronunciation: '/ˈhaɪpərˌskeɪlər/',
+    partOfSpeech: 'noun',
+    definition: 'Major cloud providers operating at massive scale (AWS, Azure, GCP)',
+    definitionCn: '超大规模云厂商',
+    example: 'Hyperscalers are investing heavily in AI infrastructure.',
+    exampleCn: '超大规模云厂商正在大力投资AI基础设施。',
+    context: '主要指AWS、Azure、GCP三大云平台，也包括阿里云等。',
+    category: 'cloud-saas',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'c007',
+    word: 'workload',
+    pronunciation: '/ˈwɜːrkloʊd/',
+    partOfSpeech: 'noun',
+    definition: 'Computing tasks or applications running on cloud infrastructure',
+    definitionCn: '工作负载',
+    example: 'Enterprises are migrating AI workloads to public cloud.',
+    exampleCn: '企业正在将AI工作负载迁移到公有云。',
+    context: '云计算的基本单元，按workload分析客户采用情况。',
+    category: 'cloud-saas',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'c008',
+    word: 'land and expand',
+    pronunciation: '/lænd ənd ɪkˈspænd/',
+    partOfSpeech: 'phrase',
+    definition: 'Sales strategy of starting small and growing within customer accounts',
+    definitionCn: '落地并扩张',
+    example: 'Datadog\'s land and expand motion drives 120%+ net retention.',
+    exampleCn: 'Datadog的落地扩张策略推动了120%以上的净留存。',
+    context: 'SaaS经典获客策略，先获取小客户再逐步扩大使用。',
+    category: 'cloud-saas',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'c009',
+    word: 'multi-tenant',
+    pronunciation: '/ˌmʌlti ˈtenənt/',
+    partOfSpeech: 'adjective',
+    definition: 'Architecture where multiple customers share the same infrastructure',
+    definitionCn: '多租户',
+    example: 'Multi-tenant SaaS delivers better economies of scale.',
+    exampleCn: '多租户SaaS能实现更好的规模经济。',
+    context: '与single-tenant（单租户）相对，是SaaS的主流架构。',
+    category: 'cloud-saas',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'c010',
+    word: 'churn',
+    pronunciation: '/tʃɜːrn/',
+    partOfSpeech: 'noun',
+    definition: 'Rate at which customers cancel or don\'t renew subscriptions',
+    definitionCn: '流失率',
+    example: 'The company reduced churn to 5% through improved customer success.',
+    exampleCn: '该公司通过改进客户成功将流失率降至5%。',
+    context: 'SaaS的关键负面指标，与retention相对。分为logo churn和revenue churn。',
+    category: 'cloud-saas',
+    difficulty: 'beginner'
+  },
+
+  // ========== M7公司业务 (m7) ==========
+  {
+    id: 'm001',
+    word: 'data center',
+    pronunciation: '/ˈdeɪtə ˈsentər/',
+    partOfSpeech: 'noun',
+    definition: 'Facility housing computer systems and cloud infrastructure',
+    definitionCn: '数据中心',
+    example: 'NVIDIA\'s data center revenue surged to $18.4 billion, up 409% YoY.',
+    exampleCn: 'NVIDIA数据中心收入飙升至184亿美元，同比增长409%。',
+    context: 'AI需求主要体现在数据中心业务，是分析NVIDIA/AMD的关键。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm002',
+    word: 'iPhone unit',
+    pronunciation: '/ˈaɪfoʊn ˈjuːnɪt/',
+    partOfSpeech: 'noun',
+    definition: 'Number of iPhone devices sold',
+    definitionCn: 'iPhone销量/出货量',
+    example: 'iPhone units declined 1% but ASP increased, driving revenue growth.',
+    exampleCn: 'iPhone销量下降1%，但平均售价提升，推动了收入增长。',
+    context: 'Apple不再披露具体数字，分析师通过供应链数据估算。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm003',
+    word: 'capex',
+    pronunciation: '/ˈkæpeks/',
+    partOfSpeech: 'noun',
+    definition: 'Capital Expenditure - spending on long-term assets',
+    definitionCn: '资本支出',
+    example: 'Meta\'s capex guidance of $35-40B reflects aggressive AI investment.',
+    exampleCn: 'Meta 350-400亿美元的资本支出指引反映了激进的AI投资。',
+    context: '科技巨头资本支出主要用于数据中心和AI基础设施，是观察AI投资的重要指标。',
+    category: 'm7',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'm004',
+    word: 'services revenue',
+    pronunciation: '/ˈsɜːrvɪsɪz ˈrevənjuː/',
+    partOfSpeech: 'noun',
+    definition: 'Revenue from ongoing services rather than one-time product sales',
+    definitionCn: '服务收入',
+    example: 'Apple\'s services revenue hit a record $24 billion, now 25% of total.',
+    exampleCn: '苹果服务收入创纪录达到240亿美元，现占总收入的25%。',
+    context: 'Apple核心增长引擎，包括App Store、iCloud、Apple Music等。高毛利率。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm005',
+    word: 'ARPU',
+    pronunciation: '/ˈɑːrpuː/',
+    partOfSpeech: 'noun',
+    definition: 'Average Revenue Per User',
+    definitionCn: '每用户平均收入',
+    example: 'Meta\'s US ARPU reached $68, while Asia-Pacific was only $5.',
+    exampleCn: 'Meta美国区ARPU达到68美元，而亚太区仅5美元。',
+    context: '分析广告和消费业务的关键指标，不同地区差异巨大。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm006',
+    word: 'AWS',
+    pronunciation: '/eɪ dʌbljuː es/',
+    partOfSpeech: 'noun',
+    definition: 'Amazon Web Services - Amazon\'s cloud computing platform',
+    definitionCn: '亚马逊云服务',
+    example: 'AWS operating margin improved to 35%, the highest among cloud platforms.',
+    exampleCn: 'AWS营业利润率提升至35%，是云平台中最高的。',
+    context: 'Amazon最赚钱的业务，云市场份额第一（约32%）。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm007',
+    word: 'Azure',
+    pronunciation: '/ˈæʒər/',
+    partOfSpeech: 'noun',
+    definition: 'Microsoft\'s cloud computing platform',
+    definitionCn: '微软云',
+    example: 'Azure revenue grew 29%, with AI services contributing 7 points.',
+    exampleCn: 'Azure收入增长29%，其中AI服务贡献7个百分点。',
+    context: '云市场份额第二（约23%），AI集成（Copilot）是差异化优势。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm008',
+    word: 'engagement',
+    pronunciation: '/ɪnˈɡeɪdʒmənt/',
+    partOfSpeech: 'noun',
+    definition: 'User interaction and time spent on a platform',
+    definitionCn: '用户参与度',
+    example: 'Reels is driving increased engagement across Facebook and Instagram.',
+    exampleCn: 'Reels正在推动Facebook和Instagram用户参与度提升。',
+    context: '分析社交媒体和消费互联网的核心指标，包括DAU、time spent等。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'm009',
+    word: 'impressions',
+    pronunciation: '/ɪmˈpreʃnz/',
+    partOfSpeech: 'noun',
+    definition: 'Number of times ads are displayed to users',
+    definitionCn: '广告展示次数/曝光量',
+    example: 'Ad impressions grew 10% while price per ad increased 6%.',
+    exampleCn: '广告展示量增长10%，单位广告价格上涨6%。',
+    context: '广告收入=impressions × price per impression。是分析Meta、Google的关键。',
+    category: 'm7',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'm010',
+    word: 'Search',
+    pronunciation: '/sɜːrtʃ/',
+    partOfSpeech: 'noun',
+    definition: 'Google\'s core search advertising business',
+    definitionCn: '搜索业务（Google）',
+    example: 'Google Search revenue grew 14% to $48 billion, proving resilience.',
+    exampleCn: 'Google搜索收入增长14%至480亿美元，证明了韧性。',
+    context: 'Alphabet最大收入来源，面临AI带来的颠覆风险是投资者关注焦点。',
+    category: 'm7',
+    difficulty: 'beginner'
+  },
+
+  // ========== 电话会议/研报 (conference) ==========
+  {
+    id: 'f001',
+    word: 'outlook',
+    pronunciation: '/ˈaʊtlʊk/',
+    partOfSpeech: 'noun',
+    definition: 'Company\'s view or forecast of future performance',
+    definitionCn: '展望/前景',
+    example: 'Management provided an optimistic outlook for the second half.',
+    exampleCn: '管理层对下半年给出了乐观的展望。',
+    context: '电话会议中常见表达，与guidance类似但更定性。',
+    category: 'conference',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'f002',
+    word: 'headwinds',
+    pronunciation: '/ˈhedwɪndz/',
+    partOfSpeech: 'noun',
+    definition: 'Factors that hinder growth or performance',
+    definitionCn: '逆风/不利因素',
+    example: 'FX headwinds impacted revenue growth by 3 percentage points.',
+    exampleCn: '汇率逆风影响收入增长3个百分点。',
+    context: '与tailwinds（顺风/有利因素）相对，是财报中的常用比喻。',
+    category: 'conference',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'f003',
+    word: 'tailwinds',
+    pronunciation: '/ˈteɪlwɪndz/',
+    partOfSpeech: 'noun',
+    definition: 'Factors that support growth or performance',
+    definitionCn: '顺风/有利因素',
+    example: 'AI demand provides significant tailwinds for semiconductor companies.',
+    exampleCn: 'AI需求为半导体公司带来显著的顺风。',
+    context: '与headwinds相对，表示对业务有利的外部因素。',
+    category: 'conference',
+    difficulty: 'beginner'
+  },
+  {
+    id: 'f004',
+    word: 'color',
+    pronunciation: '/ˈkʌlər/',
+    partOfSpeech: 'noun',
+    definition: 'Additional context or details about a topic',
+    definitionCn: '补充说明/详情',
+    example: 'Can you provide more color on the gross margin improvement?',
+    exampleCn: '能否提供更多关于毛利率改善的详情？',
+    context: 'Q&A环节分析师常用词，请求管理层提供更多信息。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'f005',
+    word: 'visibility',
+    pronunciation: '/ˌvɪzəˈbɪləti/',
+    partOfSpeech: 'noun',
+    definition: 'Ability to predict or see future business trends',
+    definitionCn: '可见度/能见度',
+    example: 'We have limited visibility into Q2 due to macro uncertainty.',
+    exampleCn: '由于宏观不确定性，我们对第二季度的可见度有限。',
+    context: '描述对未来业务预测的信心程度。high/low visibility。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'f006',
+    word: 'pipeline',
+    pronunciation: '/ˈpaɪplaɪn/',
+    partOfSpeech: 'noun',
+    definition: 'Potential sales opportunities or products in development',
+    definitionCn: '销售漏斗/产品管线',
+    example: 'Our enterprise pipeline remains robust with strong AI-related demand.',
+    exampleCn: '我们的企业销售漏斗保持强劲，AI相关需求旺盛。',
+    context: '描述潜在业务机会。也用于产品开发（product pipeline）。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'f007',
+    word: 'ramp',
+    pronunciation: '/ræmp/',
+    partOfSpeech: 'verb',
+    definition: 'To increase production or adoption gradually',
+    definitionCn: '爬坡/提升产能',
+    example: 'H100 production continues to ramp and will accelerate in Q2.',
+    exampleCn: 'H100产能持续爬坡，将在第二季度加速。',
+    context: '半导体和产品周期中的常用词。ramp up/ramp down。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'f008',
+    word: 'monetization',
+    pronunciation: '/ˌmɒnɪtaɪˈzeɪʃn/',
+    partOfSpeech: 'noun',
+    definition: 'Process of generating revenue from a product or user base',
+    definitionCn: '变现/货币化',
+    example: 'AI monetization is still in early innings but growing rapidly.',
+    exampleCn: 'AI变现仍处于早期阶段，但增长迅速。',
+    context: '评估新产品商业化进度的关键概念。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  },
+  {
+    id: 'f009',
+    word: 'secular trend',
+    pronunciation: '/ˈsekjələr trend/',
+    partOfSpeech: 'noun',
+    definition: 'Long-term structural trend independent of economic cycles',
+    definitionCn: '长期趋势/结构性趋势',
+    example: 'AI represents a secular trend that will drive growth for years.',
+    exampleCn: 'AI代表一个将推动多年增长的长期趋势。',
+    context: '与cyclical（周期性）相对，强调趋势的持久性。',
+    category: 'conference',
+    difficulty: 'advanced'
+  },
+  {
+    id: 'f010',
+    word: 'early innings',
+    pronunciation: '/ˈɜːrli ˈɪnɪŋz/',
+    partOfSpeech: 'phrase',
+    definition: 'Still in the early stages with significant growth ahead',
+    definitionCn: '早期阶段',
+    example: 'We believe enterprise AI adoption is still in the early innings.',
+    exampleCn: '我们认为企业AI采用仍处于早期阶段。',
+    context: '棒球比喻，表示还有很大增长空间。常用于描述新兴市场机会。',
+    category: 'conference',
+    difficulty: 'intermediate'
+  }
+]
+
+// 按分类获取词汇
+export function getWordsByCategory(category: string): Word[] {
+  return vocabulary.filter(w => w.category === category)
+}
+
+// 按难度获取词汇
+export function getWordsByDifficulty(difficulty: Word['difficulty']): Word[] {
+  return vocabulary.filter(w => w.difficulty === difficulty)
+}
+
+// 获取随机词汇
+export function getRandomWords(count: number, excludeIds: string[] = []): Word[] {
+  const available = vocabulary.filter(w => !excludeIds.includes(w.id))
+  const shuffled = [...available].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
+// 搜索词汇
+export function searchWords(query: string): Word[] {
+  const q = query.toLowerCase()
+  return vocabulary.filter(w =>
+    w.word.toLowerCase().includes(q) ||
+    w.definitionCn.includes(query) ||
+    w.definition.toLowerCase().includes(q)
+  )
+}
