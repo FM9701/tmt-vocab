@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Volume2, Check, X } from 'lucide-react'
 import type { Word } from '../types'
 import { vocabulary } from '../data/vocabulary'
@@ -18,6 +18,14 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
   const [options, setOptions] = useState<Option[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
+
+  const speak = useCallback(() => {
+    speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(word.word)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.9
+    speechSynthesis.speak(utterance)
+  }, [word.word])
 
   useEffect(() => {
     // Generate options
@@ -41,14 +49,13 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
     setOptions(allOptions)
     setSelectedId(null)
     setShowResult(false)
-  }, [word])
 
-  const speak = () => {
-    const utterance = new SpeechSynthesisUtterance(word.word)
-    utterance.lang = 'en-US'
-    utterance.rate = 0.9
-    speechSynthesis.speak(utterance)
-  }
+    // 切换单词时自动发音
+    const timer = setTimeout(() => {
+      speak()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [word, speak])
 
   const handleSelect = (optionId: string) => {
     if (showResult) return

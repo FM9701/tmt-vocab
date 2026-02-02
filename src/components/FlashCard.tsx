@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Volume2, Bookmark, BookmarkCheck } from 'lucide-react'
 import type { Word } from '../types'
 import { categoryNames, categoryColors } from '../types'
@@ -15,12 +15,23 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
   const { getProgress, toggleBookmark } = useStore()
   const progress = getProgress(word.id)
 
-  const speak = () => {
+  const speak = useCallback(() => {
+    // 取消之前的发音
+    speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(word.word)
     utterance.lang = 'en-US'
     utterance.rate = 0.9
     speechSynthesis.speak(utterance)
-  }
+  }, [word.word])
+
+  // 切换单词时自动发音
+  useEffect(() => {
+    // 短暂延迟确保UI更新后再发音
+    const timer = setTimeout(() => {
+      speak()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [word.id, speak])
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped)
