@@ -70,7 +70,7 @@ export default async function handler(req: Request): Promise<Response> {
           uid: 'tmt-vocab-user',
         },
         audio: {
-          voice_type: 'BV001_streaming', // 自然女声
+          voice_type: 'zh_male_wennuanahu_moon_bigtts', // 湾区大叔
           encoding: 'mp3',
           speed_ratio: 0.95, // 稍微慢一点便于学习
           pitch_ratio: 1.0,
