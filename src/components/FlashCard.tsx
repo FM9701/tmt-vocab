@@ -3,6 +3,7 @@ import { Volume2, Bookmark, BookmarkCheck } from 'lucide-react'
 import type { Word } from '../types'
 import { categoryNames, categoryColors } from '../types'
 import { useStore } from '../store'
+import { speak as ttsSpeak } from '../lib/tts'
 
 interface FlashCardProps {
   word: Word
@@ -16,24 +17,15 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
   const progress = getProgress(word.id)
 
   const speak = useCallback(() => {
-    speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(word.word)
-    utterance.lang = 'en-US'
-    utterance.rate = 0.9
-    speechSynthesis.speak(utterance)
+    ttsSpeak(word.word)
   }, [word.word])
 
   const speakExample = useCallback(() => {
-    speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(word.example)
-    utterance.lang = 'en-US'
-    utterance.rate = 0.85
-    speechSynthesis.speak(utterance)
+    ttsSpeak(word.example)
   }, [word.example])
 
   // 切换单词时自动发音
   useEffect(() => {
-    // 短暂延迟确保UI更新后再发音
     const timer = setTimeout(() => {
       speak()
     }, 200)
