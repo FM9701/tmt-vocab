@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { UserProgress, StudySession, Category, StudyMode } from '../types'
 import { vocabulary } from '../data/vocabulary'
 import { calculateNextReview } from '../lib/spaced-repetition'
+import { loadProgressFromCloud, saveProgressToCloud, mergeProgress } from '../lib/sync'
 
 interface User {
   id: string
@@ -18,8 +19,14 @@ interface AppState {
   setUser: (user: User | null) => void
   setLoading: (loading: boolean) => void
 
+  // Sync
+  isSyncing: boolean
+  lastSyncTime: string | null
+  syncWithCloud: () => Promise<void>
+
   // Study progress
   progress: Record<string, UserProgress>
+  setProgress: (progress: Record<string, UserProgress>) => void
   updateProgress: (wordId: string, isCorrect: boolean) => void
   toggleBookmark: (wordId: string) => void
   getProgress: (wordId: string) => UserProgress
@@ -55,6 +62,15 @@ const initialProgress = (wordId: string): UserProgress => ({
   isBookmarked: false
 })
 
+// 防抖保存
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+const debouncedSave = (userId: string, progress: Record<string, UserProgress>) => {
+  if (saveTimeout) clearTimeout(saveTimeout)
+  saveTimeout = setTimeout(() => {
+    saveProgressToCloud(userId, progress)
+  }, 2000) // 2秒后保存，避免频繁请求
+}
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -64,8 +80,42 @@ export const useStore = create<AppState>()(
       setUser: (user) => set({ user }),
       setLoading: (isLoading) => set({ isLoading }),
 
+      // Sync
+      isSyncing: false,
+      lastSyncTime: null,
+
+      syncWithCloud: async () => {
+        const state = get()
+        if (!state.user) return
+
+        set({ isSyncing: true })
+
+        try {
+          const cloudProgress = await loadProgressFromCloud(state.user.id)
+
+          if (cloudProgress) {
+            // 合并本地和云端数据
+            const merged = mergeProgress(state.progress, cloudProgress)
+            set({ progress: merged })
+            // 保存合并后的数据到云端
+            await saveProgressToCloud(state.user.id, merged)
+          } else {
+            // 云端没有数据，上传本地数据
+            await saveProgressToCloud(state.user.id, state.progress)
+          }
+
+          set({ lastSyncTime: new Date().toISOString() })
+        } catch (error) {
+          console.error('Sync failed:', error)
+        } finally {
+          set({ isSyncing: false })
+        }
+      },
+
       // Progress
       progress: {},
+
+      setProgress: (progress) => set({ progress }),
 
       updateProgress: (wordId, isCorrect) => {
         const state = get()
@@ -87,27 +137,37 @@ export const useStore = create<AppState>()(
           nextReview: nextReview.toISOString()
         }
 
-        set({
-          progress: {
-            ...state.progress,
-            [wordId]: updated
-          }
-        })
+        const newProgress = {
+          ...state.progress,
+          [wordId]: updated
+        }
+
+        set({ progress: newProgress })
+
+        // 如果已登录，自动同步到云端
+        if (state.user) {
+          debouncedSave(state.user.id, newProgress)
+        }
       },
 
       toggleBookmark: (wordId) => {
         const state = get()
         const current = state.progress[wordId] || initialProgress(wordId)
 
-        set({
-          progress: {
-            ...state.progress,
-            [wordId]: {
-              ...current,
-              isBookmarked: !current.isBookmarked
-            }
+        const newProgress = {
+          ...state.progress,
+          [wordId]: {
+            ...current,
+            isBookmarked: !current.isBookmarked
           }
-        })
+        }
+
+        set({ progress: newProgress })
+
+        // 如果已登录，自动同步到云端
+        if (state.user) {
+          debouncedSave(state.user.id, newProgress)
+        }
       },
 
       getProgress: (wordId) => {
