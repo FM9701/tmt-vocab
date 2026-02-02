@@ -50,6 +50,10 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
   }
 
   const handleUnknown = () => {
+    // 不认识的单词自动加入单词本
+    if (!progress.isBookmarked) {
+      toggleBookmark(word.id)
+    }
     onUnknown()
     setIsFlipped(false)
   }
