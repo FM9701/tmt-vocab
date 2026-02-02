@@ -26,20 +26,17 @@ export default async function handler(request: Request) {
   }
 
   try {
-    // 生成token (Base64编码的 accessKey:secretKey)
-    const token = btoa(`${accessKey}:${secretKey}`)
-
     const requestBody = {
       app: {
         appid: appId,
-        token: 'access_token',
+        token: accessKey, // 使用Access Key作为token
         cluster: 'volcano_tts'
       },
       user: {
         uid: 'tmt-vocab-user'
       },
       audio: {
-        voice_type: 'BV503_streaming', // Ariana - 活力女声，更自然
+        voice_type: 'BV503', // Ariana活力女声（不带_streaming后缀）
         encoding: 'mp3',
         speed_ratio: 1.0,
         volume_ratio: 1.0,
@@ -57,22 +54,21 @@ export default async function handler(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer;${token}`
+        'Authorization': `Bearer ${accessKey}` // 修复Authorization格式
       },
       body: JSON.stringify(requestBody)
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Volc TTS error:', response.status, errorText)
-      return new Response('TTS generation failed', { status: 500 })
-    }
-
     const result = await response.json()
 
+    console.log('Volc TTS response:', JSON.stringify(result))
+
     if (result.code !== 3000 || !result.data) {
-      console.error('Volc TTS error:', result)
-      return new Response('TTS generation failed', { status: 500 })
+      console.error('Volc TTS error code:', result.code, 'message:', result.message)
+      return new Response(JSON.stringify({ error: result.message || 'TTS failed', code: result.code }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
     // 返回音频数据 (Base64解码)
