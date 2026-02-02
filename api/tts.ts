@@ -39,7 +39,7 @@ export default async function handler(request: Request) {
         uid: 'tmt-vocab-user'
       },
       audio: {
-        voice_type: 'en_us_amadeus', // 美式英语男声
+        voice_type: 'BV503_streaming', // Ariana - 活力女声，更自然
         encoding: 'mp3',
         speed_ratio: 1.0,
         volume_ratio: 1.0,
