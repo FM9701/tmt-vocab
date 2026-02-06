@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
@@ -6,20 +6,34 @@ import { useStore } from '../store'
 import type { Word } from '../types'
 import { categoryNames, type Category } from '../types'
 
+function getFilteredWords(mode: string | null, selectedCategory: string) {
+  const words = useStore.getState().getAllWords()
+  if (mode === 'review') {
+    const reviewIds = useStore.getState().getWordsToReview()
+    return words.filter(w => reviewIds.includes(w.id))
+  }
+  return words.filter(
+    w => selectedCategory === 'all' || w.category === selectedCategory
+  )
+}
+
+async function fetchNewWords(selectedCategory: string): Promise<Word[]> {
+  const store = useStore.getState()
+  if (store.isGenerating) return []
+  const catParam = selectedCategory === 'all' ? undefined : selectedCategory
+  return store.generateMoreWords(catParam as Category | undefined)
+}
+
 export function Learn() {
   const [searchParams] = useSearchParams()
-  const mode = searchParams.get('mode') // 'review' or null
+  const mode = searchParams.get('mode')
 
-  const {
-    selectedCategory,
-    setSelectedCategory,
-    updateProgress,
-    recordAnswer,
-    startSession,
-    getWordsToReview,
-    generateMoreWords,
-    isGenerating,
-  } = useStore()
+  const selectedCategory = useStore(s => s.selectedCategory)
+  const setSelectedCategory = useStore(s => s.setSelectedCategory)
+  const updateProgress = useStore(s => s.updateProgress)
+  const recordAnswer = useStore(s => s.recordAnswer)
+  const startSession = useStore(s => s.startSession)
+  const isGenerating = useStore(s => s.isGenerating)
 
   const [currentWord, setCurrentWord] = useState<Word | null>(null)
   const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
@@ -28,116 +42,99 @@ export function Learn() {
 
   const seenWordIds = useRef(new Set<string>())
   const retryQueue = useRef<string[]>([])
+  const isInitializing = useRef(false)
 
   const categories = Object.entries(categoryNames) as [Category, string][]
 
-  const getFilteredWords = useCallback(() => {
-    const words = useStore.getState().getAllWords()
-    if (mode === 'review') {
-      const reviewIds = getWordsToReview()
-      return words.filter(w => reviewIds.includes(w.id))
-    }
-    return words.filter(
-      w => selectedCategory === 'all' || w.category === selectedCategory
-    )
-  }, [mode, selectedCategory, getWordsToReview])
+  // 取下一个词
+  const pickNext = async (): Promise<Word | null> => {
+    const allFiltered = getFilteredWords(mode, selectedCategory)
 
-  // 取下一个词：30% 概率从 retryQueue 取，否则取新词
-  const pickNextWord = useCallback(async (): Promise<Word | null> => {
-    const allFiltered = getFilteredWords()
-
-    // 有 retry 词时，30% 概率插入一个
+    // 30% 概率从 retryQueue 取
     if (retryQueue.current.length > 0 && Math.random() < 0.3) {
       const retryId = retryQueue.current.shift()!
       const word = allFiltered.find(w => w.id === retryId)
       if (word) return word
     }
 
-    // 取一个没见过的新词
+    // 取新词
     const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
-
     if (unseen.length > 0) {
-      const randomIndex = Math.floor(Math.random() * unseen.length)
-      const word = unseen[randomIndex]
+      const word = unseen[Math.floor(Math.random() * unseen.length)]
       seenWordIds.current.add(word.id)
       return word
     }
 
-    // 本地没有新词了，先消耗 retryQueue
+    // 消耗剩余 retryQueue
     if (retryQueue.current.length > 0) {
       const retryId = retryQueue.current.shift()!
       const word = allFiltered.find(w => w.id === retryId)
       if (word) return word
     }
 
-    // 全部用完，尝试 AI 生成
+    // AI 生成
     if (mode === 'review') return null
 
     setIsLoadingAI(true)
     try {
-      const catParam = selectedCategory === 'all' ? undefined : selectedCategory
-      const newWords = await generateMoreWords(catParam as Category | undefined)
+      const newWords = await fetchNewWords(selectedCategory)
       if (newWords.length > 0) {
-        const word = newWords[0]
-        seenWordIds.current.add(word.id)
-        return word
+        seenWordIds.current.add(newWords[0].id)
+        return newWords[0]
       }
     } catch {
-      // AI 生成失败
+      // failed
     } finally {
       setIsLoadingAI(false)
     }
 
     return null
-  }, [getFilteredWords, mode, selectedCategory, generateMoreWords])
+  }
 
-  const goNext = useCallback(async () => {
-    const next = await pickNextWord()
+  const goNext = async () => {
+    const next = await pickNext()
     if (next) {
       setCurrentWord(next)
     } else {
       setIsComplete(true)
     }
-  }, [pickNextWord])
+  }
 
   // 初始化
   useEffect(() => {
+    if (isInitializing.current) return
+    isInitializing.current = true
+
     seenWordIds.current.clear()
     retryQueue.current = []
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
     setCurrentWord(null)
     startSession()
-    // 取第一个词（如果没有词则先触发 AI 生成）
-    const init = async () => {
-      let allFiltered = useStore.getState().getAllWords().filter(
-        w => mode === 'review'
-          ? getWordsToReview().includes(w.id)
-          : selectedCategory === 'all' || w.category === selectedCategory
-      )
 
+    const init = async () => {
+      let allFiltered = getFilteredWords(mode, selectedCategory)
+
+      // 没有词，触发 AI 生成
       if (allFiltered.length === 0 && mode !== 'review') {
         setIsLoadingAI(true)
         try {
-          const catParam = selectedCategory === 'all' ? undefined : selectedCategory
-          await generateMoreWords(catParam as Category | undefined)
-          // 重新从 store 获取最新数据
-          allFiltered = useStore.getState().getAllWords().filter(
-            w => selectedCategory === 'all' || w.category === selectedCategory
-          )
+          await fetchNewWords(selectedCategory)
+          allFiltered = getFilteredWords(mode, selectedCategory)
         } catch {
-          // AI generation failed
+          // failed
         } finally {
           setIsLoadingAI(false)
         }
       }
 
-      if (allFiltered.length === 0) return
+      if (allFiltered.length > 0) {
+        const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
+        seenWordIds.current.add(first.id)
+        setCurrentWord(first)
+      }
 
-      const randomIndex = Math.floor(Math.random() * allFiltered.length)
-      const first = allFiltered[randomIndex]
-      seenWordIds.current.add(first.id)
-      setCurrentWord(first)
+      isInitializing.current = false
     }
     init()
   }, [mode, selectedCategory])
@@ -159,16 +156,15 @@ export function Learn() {
     goNext()
   }
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     seenWordIds.current.clear()
     retryQueue.current = []
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
     startSession()
-    const allFiltered = getFilteredWords()
+    const allFiltered = getFilteredWords(mode, selectedCategory)
     if (allFiltered.length > 0) {
-      const randomIndex = Math.floor(Math.random() * allFiltered.length)
-      const first = allFiltered[randomIndex]
+      const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
       seenWordIds.current.add(first.id)
       setCurrentWord(first)
     }
@@ -214,7 +210,6 @@ export function Learn() {
     )
   }
 
-  // 全部学完
   if (isComplete) {
     const accuracy = total > 0 ? Math.round(sessionStats.correct / total * 100) : 0
 
