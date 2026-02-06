@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
 import { useStore } from '../store'
 import type { Word } from '../types'
@@ -17,28 +17,6 @@ function getFilteredWords(mode: string | null, selectedCategory: string): Word[]
   )
 }
 
-async function fetchNewWords(selectedCategory: string): Promise<Word[]> {
-  const store = useStore.getState()
-  if (store.isGenerating) {
-    // Wait for current generation to finish instead of returning empty
-    return new Promise((resolve) => {
-      const unsub = useStore.subscribe((state) => {
-        if (!state.isGenerating) {
-          unsub()
-          resolve(useStore.getState().getAllWords())
-        }
-      })
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        unsub()
-        resolve([])
-      }, 30000)
-    })
-  }
-  const catParam = selectedCategory === 'all' ? undefined : selectedCategory
-  return store.generateMoreWords(catParam as Category | undefined)
-}
-
 export function Learn() {
   const [searchParams] = useSearchParams()
   const mode = searchParams.get('mode')
@@ -53,16 +31,27 @@ export function Learn() {
   const [currentWord, setCurrentWord] = useState<Word | null>(null)
   const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
   const [isComplete, setIsComplete] = useState(false)
-  const [isLoadingAI, setIsLoadingAI] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const seenWordIds = useRef(new Set<string>())
   const retryQueue = useRef<string[]>([])
   const isInitializing = useRef(false)
+  const bgGenerationTriggered = useRef(false)
 
   const categories = Object.entries(categoryNames) as [Category, string][]
 
-  const pickNext = useCallback(async (): Promise<Word | null> => {
+  // Background AI generation - runs silently while user studies
+  const triggerBackgroundGeneration = useCallback(() => {
+    if (bgGenerationTriggered.current) return
+    bgGenerationTriggered.current = true
+    const store = useStore.getState()
+    if (store.isGenerating) return
+    const catParam = selectedCategory === 'all' ? undefined : selectedCategory
+    store.generateMoreWords(catParam as Category | undefined).catch(() => {
+      // Silent fail - background generation is best-effort
+    })
+  }, [selectedCategory])
+
+  const pickNext = useCallback((): Word | null => {
     const allFiltered = getFilteredWords(mode, selectedCategory)
 
     // 30% chance to retry a missed word
@@ -77,6 +66,13 @@ export function Learn() {
     if (unseen.length > 0) {
       const word = unseen[Math.floor(Math.random() * unseen.length)]
       seenWordIds.current.add(word.id)
+
+      // When 70% through available words, trigger background AI generation
+      const seenRatio = seenWordIds.current.size / allFiltered.length
+      if (seenRatio > 0.7 && mode !== 'review') {
+        triggerBackgroundGeneration()
+      }
+
       return word
     }
 
@@ -87,49 +83,17 @@ export function Learn() {
       if (word) return word
     }
 
-    // AI generation (not in review mode)
-    if (mode === 'review') return null
-
-    setIsLoadingAI(true)
-    setErrorMsg(null)
-    try {
-      const newWords = await fetchNewWords(selectedCategory)
-      if (newWords.length > 0) {
-        // Try store first, then fallback to returned words
-        let freshFiltered = getFilteredWords(mode, selectedCategory)
-        if (freshFiltered.length === 0) {
-          freshFiltered = newWords.filter(
-            (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
-          )
-        }
-        const freshUnseen = freshFiltered.filter(w => !seenWordIds.current.has(w.id))
-        if (freshUnseen.length > 0) {
-          const word = freshUnseen[Math.floor(Math.random() * freshUnseen.length)]
-          seenWordIds.current.add(word.id)
-          return word
-        }
-      }
-      setErrorMsg('AI 生成了词汇但无法加载，请点击重试')
-    } catch (err) {
-      console.error('pickNext error:', err)
-      setErrorMsg('AI 生成词汇失败，请检查网络后重试')
-    } finally {
-      setIsLoadingAI(false)
-    }
-
     return null
-  }, [mode, selectedCategory])
+  }, [mode, selectedCategory, triggerBackgroundGeneration])
 
-  const goNext = useCallback(async () => {
-    const next = await pickNext()
+  const goNext = useCallback(() => {
+    const next = pickNext()
     if (next) {
       setCurrentWord(next)
-      setErrorMsg(null)
-    } else if (mode === 'review') {
+    } else {
       setIsComplete(true)
     }
-    // If not review mode and next is null, errorMsg is already set by pickNext
-  }, [pickNext, mode])
+  }, [pickNext])
 
   // Initialize session
   useEffect(() => {
@@ -138,61 +102,21 @@ export function Learn() {
 
     seenWordIds.current.clear()
     retryQueue.current = []
+    bgGenerationTriggered.current = false
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
-    setCurrentWord(null)
-    setErrorMsg(null)
     startSession()
 
-    const init = async () => {
-      try {
-        let allFiltered = getFilteredWords(mode, selectedCategory)
-        let hasError = false
-
-        // No words available, trigger AI generation
-        if (allFiltered.length === 0 && mode !== 'review') {
-          setIsLoadingAI(true)
-          setErrorMsg(null)
-          try {
-            const result = await fetchNewWords(selectedCategory)
-            console.log('[Learn] AI generated', result.length, 'words')
-
-            // Try reading from store first
-            allFiltered = getFilteredWords(mode, selectedCategory)
-            console.log('[Learn] Store has', allFiltered.length, 'words after generation')
-
-            // If store read fails, use returned words directly as fallback
-            if (allFiltered.length === 0 && result.length > 0) {
-              console.log('[Learn] Store read empty, using returned words directly')
-              allFiltered = result.filter(
-                (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
-              )
-            }
-          } catch (err) {
-            console.error('[Learn] fetchNewWords error:', err)
-            setErrorMsg('AI 生成词汇失败，请检查网络后重试')
-            hasError = true
-          } finally {
-            setIsLoadingAI(false)
-          }
-        }
-
-        if (allFiltered.length > 0) {
-          const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
-          seenWordIds.current.add(first.id)
-          setCurrentWord(first)
-          setErrorMsg(null)
-        } else if (!hasError && mode !== 'review') {
-          setErrorMsg('无法获取词汇，请点击重试')
-        }
-      } catch (err) {
-        console.error('[Learn] init error:', err)
-        setErrorMsg('初始化失败: ' + String(err))
-      } finally {
-        isInitializing.current = false
-      }
+    const allFiltered = getFilteredWords(mode, selectedCategory)
+    if (allFiltered.length > 0) {
+      const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
+      seenWordIds.current.add(first.id)
+      setCurrentWord(first)
+    } else {
+      setCurrentWord(null)
     }
-    init()
+
+    isInitializing.current = false
   }, [mode, selectedCategory])
 
   const handleKnown = () => {
@@ -212,44 +136,12 @@ export function Learn() {
     goNext()
   }
 
-  const handleRetry = async () => {
-    setErrorMsg(null)
-    setIsLoadingAI(true)
-    try {
-      const result = await fetchNewWords(selectedCategory)
-      console.log('[Learn] Retry: AI generated', result.length, 'words')
-
-      // Try store first, fallback to returned words
-      let pool = getFilteredWords(mode, selectedCategory)
-      if (pool.length === 0 && result.length > 0) {
-        pool = result.filter(
-          (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
-        )
-      }
-
-      if (pool.length > 0) {
-        const unseen = pool.filter(w => !seenWordIds.current.has(w.id))
-        const pick = unseen.length > 0 ? unseen : pool
-        const word = pick[Math.floor(Math.random() * pick.length)]
-        seenWordIds.current.add(word.id)
-        setCurrentWord(word)
-      } else {
-        setErrorMsg('仍然无法获取词汇，请稍后再试')
-      }
-    } catch (err) {
-      console.error('[Learn] retry error:', err)
-      setErrorMsg('重试失败: ' + String(err))
-    } finally {
-      setIsLoadingAI(false)
-    }
-  }
-
-  const handleRestart = async () => {
+  const handleRestart = () => {
     seenWordIds.current.clear()
     retryQueue.current = []
+    bgGenerationTriggered.current = false
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
-    setErrorMsg(null)
     startSession()
     const allFiltered = getFilteredWords(mode, selectedCategory)
     if (allFiltered.length > 0) {
@@ -261,54 +153,7 @@ export function Learn() {
 
   const total = sessionStats.correct + sessionStats.wrong
 
-  // Loading state
-  if (isLoadingAI || (isGenerating && !currentWord)) {
-    return (
-      <div className="px-4 py-6">
-        <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
-          <ArrowLeft size={20} />
-          返回
-        </Link>
-        <div className="text-center py-12">
-          <Loader2 size={40} className="animate-spin mx-auto mb-4 text-[var(--color-primary)]" />
-          <p className="text-[var(--color-text-muted)]">
-            AI 正在生成新词汇...
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Error state with retry button
-  if (errorMsg && !currentWord) {
-    return (
-      <div className="px-4 py-6">
-        <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
-          <ArrowLeft size={20} />
-          返回
-        </Link>
-        <div className="text-center py-12">
-          <p className="text-[var(--color-text-muted)] mb-4">
-            {errorMsg}
-          </p>
-          <button
-            onClick={handleRetry}
-            className="btn btn-primary inline-flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            重试
-          </button>
-          <div className="mt-4">
-            <Link to="/" className="text-sm text-[var(--color-text-muted)] underline">
-              返回首页
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // No words available (review mode empty, etc.)
+  // No words available
   if (!currentWord && !isComplete) {
     return (
       <div className="px-4 py-6">
@@ -379,7 +224,7 @@ export function Learn() {
         </Link>
         <span className="text-sm text-[var(--color-text-muted)]">
           已学 {total} 个
-          {isGenerating && ' · AI生成中...'}
+          {isGenerating && ' · 加载新词中...'}
         </span>
         <div className="flex gap-2 text-sm">
           <span className="text-green-500">{sessionStats.correct}</span>

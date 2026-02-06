@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Word, UserProgress, StudySession, Category, StudyMode } from '../types'
 import { calculateNextReview } from '../lib/spaced-repetition'
 import { loadProgressFromCloud, saveProgressToCloud, mergeProgress } from '../lib/sync'
+import staticVocabulary from '../data/vocabulary.json'
 
 interface User {
   id: string
@@ -129,7 +130,7 @@ export const useStore = create<AppState>()(
 
       isGenerating: false,
 
-      generateMoreWords: async (category?: Category | 'all', count = 8) => {
+      generateMoreWords: async (category?: Category | 'all', count = 5) => {
         const state = get()
         if (state.isGenerating) {
           console.log('[Store] generateMoreWords: already generating, skipping')
@@ -179,7 +180,13 @@ export const useStore = create<AppState>()(
 
       getAllWords: () => {
         const state = get()
-        return state.generatedWords
+        const staticWords = staticVocabulary as Word[]
+        // Merge static + AI-generated, dedup by word text
+        const seen = new Set(staticWords.map(w => w.word.toLowerCase()))
+        const uniqueGenerated = state.generatedWords.filter(
+          w => !seen.has(w.word.toLowerCase())
+        )
+        return [...staticWords, ...uniqueGenerated]
       },
 
       // Progress
