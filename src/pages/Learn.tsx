@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, Shuffle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
 import { useStore } from '../store'
 import type { Word } from '../types'
 import { categoryNames, type Category } from '../types'
-
-const BATCH_SIZE = 10
 
 export function Learn() {
   const [searchParams] = useSearchParams()
@@ -24,13 +22,11 @@ export function Learn() {
     isGenerating,
   } = useStore()
 
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [currentBatch, setCurrentBatch] = useState<Word[]>([])
+  const [currentWord, setCurrentWord] = useState<Word | null>(null)
   const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
   const [isComplete, setIsComplete] = useState(false)
-  const [isLoadingBatch, setIsLoadingBatch] = useState(false)
+  const [isLoadingAI, setIsLoadingAI] = useState(false)
 
-  // Persistent across batches within this session
   const seenWordIds = useRef(new Set<string>())
   const retryQueue = useRef<string[]>([])
 
@@ -46,91 +42,87 @@ export function Learn() {
     )
   }, [mode, selectedCategory, getWordsToReview, getAllWords])
 
-  const prepareBatch = useCallback(async () => {
+  // 取下一个词：30% 概率从 retryQueue 取，否则取新词
+  const pickNextWord = useCallback(async (): Promise<Word | null> => {
     const allFiltered = getFilteredWords()
+
+    // 有 retry 词时，30% 概率插入一个
+    if (retryQueue.current.length > 0 && Math.random() < 0.3) {
+      const retryId = retryQueue.current.shift()!
+      const word = allFiltered.find(w => w.id === retryId)
+      if (word) return word
+    }
+
+    // 取一个没见过的新词
     const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
 
-    // If no unseen words and no retry queue, try AI generation
-    if (unseen.length === 0 && retryQueue.current.length === 0) {
-      if (mode === 'review') {
-        // Review mode: no AI generation, just mark complete
-        setIsComplete(true)
-        return
-      }
-
-      setIsLoadingBatch(true)
-      try {
-        const catParam = selectedCategory === 'all' ? undefined : selectedCategory
-        const newWords = await generateMoreWords(catParam as Category | undefined)
-        if (newWords.length === 0) {
-          setIsComplete(true)
-          return
-        }
-        // After generation, getAllWords() will include new words
-        // Recurse to build batch from newly available words
-        const freshFiltered = getAllWords().filter(
-          w => selectedCategory === 'all' || w.category === selectedCategory
-        )
-        const freshUnseen = freshFiltered.filter(w => !seenWordIds.current.has(w.id))
-        buildBatchFromUnseen(freshUnseen, allFiltered)
-      } catch {
-        setIsComplete(true)
-      } finally {
-        setIsLoadingBatch(false)
-      }
-      return
+    if (unseen.length > 0) {
+      const randomIndex = Math.floor(Math.random() * unseen.length)
+      const word = unseen[randomIndex]
+      seenWordIds.current.add(word.id)
+      return word
     }
 
-    buildBatchFromUnseen(unseen, allFiltered)
-  }, [getFilteredWords, mode, selectedCategory, generateMoreWords, getAllWords])
+    // 本地没有新词了，先消耗 retryQueue
+    if (retryQueue.current.length > 0) {
+      const retryId = retryQueue.current.shift()!
+      const word = allFiltered.find(w => w.id === retryId)
+      if (word) return word
+    }
 
-  const buildBatchFromUnseen = (unseen: Word[], allFiltered: Word[]) => {
-    // Shuffle and take up to BATCH_SIZE new words
-    const shuffled = [...unseen].sort(() => Math.random() - 0.5)
-    const batch = shuffled.slice(0, BATCH_SIZE)
+    // 全部用完，尝试 AI 生成
+    if (mode === 'review') return null
 
-    // Insert 1-2 retry words at random positions
-    const retryCount = Math.min(2, retryQueue.current.length)
-    if (retryCount > 0) {
-      const retryIds = retryQueue.current.splice(0, retryCount)
-      for (const retryId of retryIds) {
-        const retryWord = allFiltered.find(w => w.id === retryId)
-        if (retryWord) {
-          const insertPos = Math.floor(Math.random() * (batch.length + 1))
-          batch.splice(insertPos, 0, retryWord)
-        }
+    setIsLoadingAI(true)
+    try {
+      const catParam = selectedCategory === 'all' ? undefined : selectedCategory
+      const newWords = await generateMoreWords(catParam as Category | undefined)
+      if (newWords.length > 0) {
+        const word = newWords[0]
+        seenWordIds.current.add(word.id)
+        return word
       }
+    } catch {
+      // AI 生成失败
+    } finally {
+      setIsLoadingAI(false)
     }
 
-    // Mark all batch words as seen
-    for (const w of batch) {
-      seenWordIds.current.add(w.id)
+    return null
+  }, [getFilteredWords, mode, selectedCategory, generateMoreWords])
+
+  const goNext = useCallback(async () => {
+    const next = await pickNextWord()
+    if (next) {
+      setCurrentWord(next)
+    } else {
+      setIsComplete(true)
     }
+  }, [pickNextWord])
 
-    setCurrentBatch(batch)
-    setCurrentIndex(0)
-  }
-
-  // Initialize session on mount or when filter changes
+  // 初始化
   useEffect(() => {
     seenWordIds.current.clear()
     retryQueue.current = []
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
+    setCurrentWord(null)
     startSession()
-    prepareBatch()
+    // 取第一个词
+    const init = async () => {
+      const allFiltered = mode === 'review'
+        ? getAllWords().filter(w => getWordsToReview().includes(w.id))
+        : getAllWords().filter(w => selectedCategory === 'all' || w.category === selectedCategory)
+
+      if (allFiltered.length === 0) return
+
+      const randomIndex = Math.floor(Math.random() * allFiltered.length)
+      const first = allFiltered[randomIndex]
+      seenWordIds.current.add(first.id)
+      setCurrentWord(first)
+    }
+    init()
   }, [mode, selectedCategory])
-
-  const shuffleCurrentBatch = () => {
-    const shuffled = [...currentBatch].sort(() => Math.random() - 0.5)
-    setCurrentBatch(shuffled)
-    setCurrentIndex(0)
-  }
-
-  const currentWord = currentBatch[currentIndex]
-  const progress = currentBatch.length > 0
-    ? ((currentIndex + 1) / currentBatch.length) * 100
-    : 0
 
   const handleKnown = () => {
     if (!currentWord) return
@@ -145,18 +137,8 @@ export function Learn() {
     updateProgress(currentWord.id, false)
     recordAnswer(false)
     setSessionStats(s => ({ ...s, wrong: s.wrong + 1 }))
-    // Push to retry queue for later
     retryQueue.current.push(currentWord.id)
     goNext()
-  }
-
-  const goNext = () => {
-    if (currentIndex < currentBatch.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-    } else {
-      // Current batch finished, prepare next batch
-      prepareBatch()
-    }
   }
 
   const handleRestart = () => {
@@ -165,11 +147,19 @@ export function Learn() {
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
     startSession()
-    prepareBatch()
+    const allFiltered = getFilteredWords()
+    if (allFiltered.length > 0) {
+      const randomIndex = Math.floor(Math.random() * allFiltered.length)
+      const first = allFiltered[randomIndex]
+      seenWordIds.current.add(first.id)
+      setCurrentWord(first)
+    }
   }
 
-  // Loading state (AI generating or preparing batch)
-  if (isLoadingBatch || (isGenerating && currentBatch.length === 0)) {
+  const total = sessionStats.correct + sessionStats.wrong
+
+  // AI 生成中
+  if (isLoadingAI || (isGenerating && !currentWord)) {
     return (
       <div className="px-4 py-6">
         <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
@@ -186,7 +176,8 @@ export function Learn() {
     )
   }
 
-  if (currentBatch.length === 0 && !isComplete) {
+  // 没有可用词
+  if (!currentWord && !isComplete) {
     return (
       <div className="px-4 py-6">
         <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
@@ -205,8 +196,8 @@ export function Learn() {
     )
   }
 
+  // 全部学完
   if (isComplete) {
-    const total = sessionStats.correct + sessionStats.wrong
     const accuracy = total > 0 ? Math.round(sessionStats.correct / total * 100) : 0
 
     return (
@@ -256,20 +247,14 @@ export function Learn() {
           <ArrowLeft size={20} />
         </Link>
         <span className="text-sm text-[var(--color-text-muted)]">
-          {currentIndex + 1} / {currentBatch.length}
-          {isGenerating && ' (生成中...)'}
+          已学 {total} 个
+          {isGenerating && ' · AI生成中...'}
         </span>
-        <button onClick={shuffleCurrentBatch} className="p-2">
-          <Shuffle size={20} className="text-[var(--color-text-muted)]" />
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-[var(--color-surface-light)] rounded-full mb-6">
-        <div
-          className="h-full bg-[var(--color-primary)] rounded-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
+        <div className="flex gap-2 text-sm">
+          <span className="text-green-500">{sessionStats.correct}</span>
+          <span className="text-[var(--color-text-muted)]">/</span>
+          <span className="text-red-500">{sessionStats.wrong}</span>
+        </div>
       </div>
 
       {/* Category filter (only in normal mode) */}
