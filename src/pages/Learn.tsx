@@ -67,9 +67,9 @@ export function Learn() {
       const word = unseen[Math.floor(Math.random() * unseen.length)]
       seenWordIds.current.add(word.id)
 
-      // When 70% through available words, trigger background AI generation
+      // When 10% through available words, trigger background AI generation early
       const seenRatio = seenWordIds.current.size / allFiltered.length
-      if (seenRatio > 0.7 && mode !== 'review') {
+      if (seenRatio > 0.1 && mode !== 'review') {
         triggerBackgroundGeneration()
       }
 
