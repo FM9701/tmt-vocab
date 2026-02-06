@@ -55,8 +55,8 @@ export function Learn() {
   const pickNext = useCallback((): Word | null => {
     const allFiltered = getFilteredWords(mode)
 
-    // 30% chance to retry a missed word (but never the one just shown)
-    if (retryQueue.current.length > 0 && Math.random() < 0.3) {
+    // 10% chance to retry a missed word (roughly 1 per 10 new words)
+    if (retryQueue.current.length > 0 && Math.random() < 0.1) {
       const idx = retryQueue.current.findIndex(id => id !== lastShownId.current)
       if (idx !== -1) {
         const retryId = retryQueue.current.splice(idx, 1)[0]
