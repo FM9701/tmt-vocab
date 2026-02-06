@@ -11,6 +11,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*'],
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallback: '/index.html',
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\./,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /\/api\//,
+            handler: 'NetworkOnly',
+          }
+        ]
+      },
       manifest: {
         name: 'TMT Vocab',
         short_name: 'TMT Vocab',

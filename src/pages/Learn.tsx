@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
 import { useStore } from '../store'
 import type { Word } from '../types'
 import { categoryNames, type Category } from '../types'
 
-function getFilteredWords(mode: string | null, selectedCategory: string) {
+function getFilteredWords(mode: string | null, selectedCategory: string): Word[] {
   const words = useStore.getState().getAllWords()
   if (mode === 'review') {
     const reviewIds = useStore.getState().getWordsToReview()
@@ -19,7 +19,22 @@ function getFilteredWords(mode: string | null, selectedCategory: string) {
 
 async function fetchNewWords(selectedCategory: string): Promise<Word[]> {
   const store = useStore.getState()
-  if (store.isGenerating) return []
+  if (store.isGenerating) {
+    // Wait for current generation to finish instead of returning empty
+    return new Promise((resolve) => {
+      const unsub = useStore.subscribe((state) => {
+        if (!state.isGenerating) {
+          unsub()
+          resolve(useStore.getState().getAllWords())
+        }
+      })
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        unsub()
+        resolve([])
+      }, 30000)
+    })
+  }
   const catParam = selectedCategory === 'all' ? undefined : selectedCategory
   return store.generateMoreWords(catParam as Category | undefined)
 }
@@ -39,6 +54,7 @@ export function Learn() {
   const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
   const [isComplete, setIsComplete] = useState(false)
   const [isLoadingAI, setIsLoadingAI] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const seenWordIds = useRef(new Set<string>())
   const retryQueue = useRef<string[]>([])
@@ -46,18 +62,17 @@ export function Learn() {
 
   const categories = Object.entries(categoryNames) as [Category, string][]
 
-  // 取下一个词
-  const pickNext = async (): Promise<Word | null> => {
+  const pickNext = useCallback(async (): Promise<Word | null> => {
     const allFiltered = getFilteredWords(mode, selectedCategory)
 
-    // 30% 概率从 retryQueue 取
+    // 30% chance to retry a missed word
     if (retryQueue.current.length > 0 && Math.random() < 0.3) {
       const retryId = retryQueue.current.shift()!
       const word = allFiltered.find(w => w.id === retryId)
       if (word) return word
     }
 
-    // 取新词
+    // Pick an unseen word
     const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
     if (unseen.length > 0) {
       const word = unseen[Math.floor(Math.random() * unseen.length)]
@@ -65,42 +80,53 @@ export function Learn() {
       return word
     }
 
-    // 消耗剩余 retryQueue
+    // Drain remaining retry queue
     if (retryQueue.current.length > 0) {
       const retryId = retryQueue.current.shift()!
       const word = allFiltered.find(w => w.id === retryId)
       if (word) return word
     }
 
-    // AI 生成
+    // AI generation (not in review mode)
     if (mode === 'review') return null
 
     setIsLoadingAI(true)
+    setErrorMsg(null)
     try {
       const newWords = await fetchNewWords(selectedCategory)
       if (newWords.length > 0) {
-        seenWordIds.current.add(newWords[0].id)
-        return newWords[0]
+        // Re-read from store to get all words including newly added
+        const freshFiltered = getFilteredWords(mode, selectedCategory)
+        const freshUnseen = freshFiltered.filter(w => !seenWordIds.current.has(w.id))
+        if (freshUnseen.length > 0) {
+          const word = freshUnseen[Math.floor(Math.random() * freshUnseen.length)]
+          seenWordIds.current.add(word.id)
+          return word
+        }
       }
-    } catch {
-      // failed
+      setErrorMsg('AI 生成了词汇但无法加载，请点击重试')
+    } catch (err) {
+      console.error('pickNext error:', err)
+      setErrorMsg('AI 生成词汇失败，请检查网络后重试')
     } finally {
       setIsLoadingAI(false)
     }
 
     return null
-  }
+  }, [mode, selectedCategory])
 
-  const goNext = async () => {
+  const goNext = useCallback(async () => {
     const next = await pickNext()
     if (next) {
       setCurrentWord(next)
-    } else {
+      setErrorMsg(null)
+    } else if (mode === 'review') {
       setIsComplete(true)
     }
-  }
+    // If not review mode and next is null, errorMsg is already set by pickNext
+  }, [pickNext, mode])
 
-  // 初始化
+  // Initialize session
   useEffect(() => {
     if (isInitializing.current) return
     isInitializing.current = true
@@ -110,31 +136,46 @@ export function Learn() {
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
     setCurrentWord(null)
+    setErrorMsg(null)
     startSession()
 
     const init = async () => {
-      let allFiltered = getFilteredWords(mode, selectedCategory)
+      try {
+        let allFiltered = getFilteredWords(mode, selectedCategory)
 
-      // 没有词，触发 AI 生成
-      if (allFiltered.length === 0 && mode !== 'review') {
-        setIsLoadingAI(true)
-        try {
-          await fetchNewWords(selectedCategory)
-          allFiltered = getFilteredWords(mode, selectedCategory)
-        } catch {
-          // failed
-        } finally {
-          setIsLoadingAI(false)
+        // No words available, trigger AI generation
+        if (allFiltered.length === 0 && mode !== 'review') {
+          setIsLoadingAI(true)
+          setErrorMsg(null)
+          try {
+            const result = await fetchNewWords(selectedCategory)
+            console.log('[Learn] AI generated', result.length, 'words')
+            // Always re-read from store after generation
+            allFiltered = getFilteredWords(mode, selectedCategory)
+            console.log('[Learn] After generation, filtered words:', allFiltered.length)
+          } catch (err) {
+            console.error('[Learn] fetchNewWords error:', err)
+            setErrorMsg('AI 生成词汇失败，请检查网络后重试')
+          } finally {
+            setIsLoadingAI(false)
+          }
         }
-      }
 
-      if (allFiltered.length > 0) {
-        const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
-        seenWordIds.current.add(first.id)
-        setCurrentWord(first)
+        if (allFiltered.length > 0) {
+          const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
+          seenWordIds.current.add(first.id)
+          setCurrentWord(first)
+          setErrorMsg(null)
+        } else if (mode !== 'review') {
+          // Still no words after AI generation - show error
+          setErrorMsg('无法获取词汇，请点击重试')
+        }
+      } catch (err) {
+        console.error('[Learn] init error:', err)
+        setErrorMsg('初始化失败: ' + String(err))
+      } finally {
+        isInitializing.current = false
       }
-
-      isInitializing.current = false
     }
     init()
   }, [mode, selectedCategory])
@@ -156,11 +197,37 @@ export function Learn() {
     goNext()
   }
 
+  const handleRetry = async () => {
+    setErrorMsg(null)
+    setIsLoadingAI(true)
+    try {
+      const result = await fetchNewWords(selectedCategory)
+      console.log('[Learn] Retry: AI generated', result.length, 'words')
+      const allFiltered = getFilteredWords(mode, selectedCategory)
+      console.log('[Learn] Retry: filtered words:', allFiltered.length)
+      if (allFiltered.length > 0) {
+        const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
+        const pool = unseen.length > 0 ? unseen : allFiltered
+        const word = pool[Math.floor(Math.random() * pool.length)]
+        seenWordIds.current.add(word.id)
+        setCurrentWord(word)
+      } else {
+        setErrorMsg('仍然无法获取词汇，请稍后再试')
+      }
+    } catch (err) {
+      console.error('[Learn] retry error:', err)
+      setErrorMsg('重试失败: ' + String(err))
+    } finally {
+      setIsLoadingAI(false)
+    }
+  }
+
   const handleRestart = async () => {
     seenWordIds.current.clear()
     retryQueue.current = []
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
+    setErrorMsg(null)
     startSession()
     const allFiltered = getFilteredWords(mode, selectedCategory)
     if (allFiltered.length > 0) {
@@ -172,7 +239,7 @@ export function Learn() {
 
   const total = sessionStats.correct + sessionStats.wrong
 
-  // AI 生成中
+  // Loading state
   if (isLoadingAI || (isGenerating && !currentWord)) {
     return (
       <div className="px-4 py-6">
@@ -190,7 +257,36 @@ export function Learn() {
     )
   }
 
-  // 没有可用词
+  // Error state with retry button
+  if (errorMsg && !currentWord) {
+    return (
+      <div className="px-4 py-6">
+        <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
+          <ArrowLeft size={20} />
+          返回
+        </Link>
+        <div className="text-center py-12">
+          <p className="text-[var(--color-text-muted)] mb-4">
+            {errorMsg}
+          </p>
+          <button
+            onClick={handleRetry}
+            className="btn btn-primary inline-flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            重试
+          </button>
+          <div className="mt-4">
+            <Link to="/" className="text-sm text-[var(--color-text-muted)] underline">
+              返回首页
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // No words available (review mode empty, etc.)
   if (!currentWord && !isComplete) {
     return (
       <div className="px-4 py-6">

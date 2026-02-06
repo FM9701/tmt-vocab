@@ -131,9 +131,13 @@ export const useStore = create<AppState>()(
 
       generateMoreWords: async (category?: Category | 'all', count = 30) => {
         const state = get()
-        if (state.isGenerating) return []
+        if (state.isGenerating) {
+          console.log('[Store] generateMoreWords: already generating, skipping')
+          return []
+        }
 
         set({ isGenerating: true })
+        console.log('[Store] generateMoreWords: started, category=', category, 'count=', count)
 
         try {
           const allWords = state.getAllWords()
@@ -150,20 +154,24 @@ export const useStore = create<AppState>()(
           })
 
           if (!response.ok) {
-            throw new Error('Failed to generate words')
+            const errorText = await response.text()
+            console.error('[Store] API error:', response.status, errorText)
+            throw new Error(`API error ${response.status}: ${errorText}`)
           }
 
           const data = await response.json() as { words: Word[] }
           const newWords = data.words || []
+          console.log('[Store] generateMoreWords: received', newWords.length, 'words from API')
 
           if (newWords.length > 0) {
             get().addGeneratedWords(newWords)
+            console.log('[Store] generateMoreWords: total words now =', get().getAllWords().length)
           }
 
           return newWords
         } catch (error) {
-          console.error('Generate words error:', error)
-          return []
+          console.error('[Store] Generate words error:', error)
+          throw error  // Re-throw so callers can handle it
         } finally {
           set({ isGenerating: false })
         }
