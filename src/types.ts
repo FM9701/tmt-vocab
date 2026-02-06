@@ -46,6 +46,7 @@ export interface UserProgress {
   lastReviewed: string   // ISO date
   nextReview: string     // ISO date (间隔重复)
   isBookmarked: boolean  // 是否收藏
+  isMastered?: boolean   // 已学会（点过认识 或 从单词本移除）
 }
 
 export interface StudySession {

@@ -54,6 +54,7 @@ interface AppState {
 
   // Statistics
   getTotalWordsLearned: () => number
+  getTotalWordsMastered: () => number
   getTodayWordsLearned: () => number
   getOverallMastery: () => number
   getStreakDays: () => number
@@ -211,7 +212,8 @@ export const useStore = create<AppState>()(
           correctCount: isCorrect ? current.correctCount + 1 : current.correctCount,
           wrongCount: isCorrect ? current.wrongCount : current.wrongCount + 1,
           lastReviewed: new Date().toISOString(),
-          nextReview: nextReview.toISOString()
+          nextReview: nextReview.toISOString(),
+          isMastered: current.isMastered || isCorrect // 点过一次认识就标记已学会
         }
 
         const newProgress = {
@@ -230,12 +232,15 @@ export const useStore = create<AppState>()(
       toggleBookmark: (wordId) => {
         const state = get()
         const current = state.progress[wordId] || initialProgress(wordId)
+        const wasBookmarked = current.isBookmarked
 
         const newProgress = {
           ...state.progress,
           [wordId]: {
             ...current,
-            isBookmarked: !current.isBookmarked
+            isBookmarked: !current.isBookmarked,
+            // 从单词本取消收藏 = 标记已学会
+            isMastered: current.isMastered || wasBookmarked
           }
         }
 
@@ -311,8 +316,17 @@ export const useStore = create<AppState>()(
 
       // Statistics
       getTotalWordsLearned: () => {
+        // 已学习 = 看过的不同的词数（点过认识或不认识）
         const state = get()
-        return Object.values(state.progress).filter(p => p.mastery > 0).length
+        return Object.values(state.progress).filter(
+          p => p.correctCount + p.wrongCount > 0
+        ).length
+      },
+
+      getTotalWordsMastered: () => {
+        // 已学会 = 点过认识 或 从单词本移除
+        const state = get()
+        return Object.values(state.progress).filter(p => p.isMastered).length
       },
 
       getTodayWordsLearned: () => {
@@ -320,7 +334,7 @@ export const useStore = create<AppState>()(
         const today = new Date().toDateString()
         return Object.values(state.progress).filter(p => {
           const reviewDate = new Date(p.lastReviewed).toDateString()
-          return reviewDate === today && p.mastery > 0
+          return reviewDate === today && (p.correctCount + p.wrongCount > 0)
         }).length
       },
 

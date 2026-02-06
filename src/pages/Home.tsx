@@ -9,6 +9,7 @@ export function Home() {
   const {
     user,
     getTotalWordsLearned,
+    getTotalWordsMastered,
     getTodayWordsLearned,
     getWordsToReview,
     getBookmarkedWords,
@@ -19,14 +20,14 @@ export function Home() {
   const [showMastered, setShowMastered] = useState(false)
 
   const wordsLearned = getTotalWordsLearned()
+  const masteredCount = getTotalWordsMastered()
   const todayLearned = getTodayWordsLearned()
   const reviewCount = getWordsToReview().length
   const bookmarkCount = getBookmarkedWords().length
 
-  // 已学会 = mastery >= 80
+  // 已学会的词列表（点过认识 或 从单词本移除）
   const allWords = getAllWords()
-  const masteredWords = allWords.filter(w => progress[w.id]?.mastery >= 80)
-  const masteredCount = masteredWords.length
+  const masteredWords = allWords.filter(w => progress[w.id]?.isMastered)
 
   return (
     <div className="px-4 py-6 relative z-10">

@@ -4,55 +4,51 @@ import { ArrowLeft } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
 import { useStore } from '../store'
 import type { Word } from '../types'
-import { categoryNames, type Category } from '../types'
 
-function getFilteredWords(mode: string | null, selectedCategory: string): Word[] {
+// Module-level state to persist current word across navigations
+let savedWordId: string | null = null
+let savedSeenIds: Set<string> = new Set()
+let savedRetryQueue: string[] = []
+let savedStats = { correct: 0, wrong: 0 }
+
+function getFilteredWords(mode: string | null): Word[] {
   const words = useStore.getState().getAllWords()
   if (mode === 'review') {
     const reviewIds = useStore.getState().getWordsToReview()
     return words.filter(w => reviewIds.includes(w.id))
   }
-  return words.filter(
-    w => selectedCategory === 'all' || w.category === selectedCategory
-  )
+  return words
 }
 
 export function Learn() {
   const [searchParams] = useSearchParams()
   const mode = searchParams.get('mode')
 
-  const selectedCategory = useStore(s => s.selectedCategory)
-  const setSelectedCategory = useStore(s => s.setSelectedCategory)
   const updateProgress = useStore(s => s.updateProgress)
   const recordAnswer = useStore(s => s.recordAnswer)
   const startSession = useStore(s => s.startSession)
   const isGenerating = useStore(s => s.isGenerating)
 
   const [currentWord, setCurrentWord] = useState<Word | null>(null)
-  const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
+  const [sessionStats, setSessionStats] = useState(savedStats)
   const [isComplete, setIsComplete] = useState(false)
 
-  const seenWordIds = useRef(new Set<string>())
-  const retryQueue = useRef<string[]>([])
+  const seenWordIds = useRef(savedSeenIds)
+  const retryQueue = useRef(savedRetryQueue)
   const isInitializing = useRef(false)
   const bgGenerationTriggered = useRef(false)
 
-  const categories = Object.entries(categoryNames) as [Category, string][]
-
-  // Background AI generation - runs silently while user studies
+  // Background AI generation
   const triggerBackgroundGeneration = useCallback(() => {
     if (bgGenerationTriggered.current) return
     bgGenerationTriggered.current = true
     const store = useStore.getState()
     if (store.isGenerating) return
-    const catParam = selectedCategory === 'all' ? undefined : selectedCategory
-    store.generateMoreWords(catParam as Category | undefined).catch(() => {
-      // Silent fail - background generation is best-effort
-    })
-  }, [selectedCategory])
+    store.generateMoreWords().catch(() => {})
+  }, [])
 
   const pickNext = useCallback((): Word | null => {
-    const allFiltered = getFilteredWords(mode, selectedCategory)
+    const allFiltered = getFilteredWords(mode)
 
     // 30% chance to retry a missed word
     if (retryQueue.current.length > 0 && Math.random() < 0.3) {
@@ -66,8 +62,9 @@ export function Learn() {
     if (unseen.length > 0) {
       const word = unseen[Math.floor(Math.random() * unseen.length)]
       seenWordIds.current.add(word.id)
+      savedSeenIds = seenWordIds.current
 
-      // When 10% through available words, trigger background AI generation early
+      // Trigger background generation early (10%)
       const seenRatio = seenWordIds.current.size / allFiltered.length
       if (seenRatio > 0.1 && mode !== 'review') {
         triggerBackgroundGeneration()
@@ -84,46 +81,71 @@ export function Learn() {
     }
 
     return null
-  }, [mode, selectedCategory, triggerBackgroundGeneration])
+  }, [mode, triggerBackgroundGeneration])
 
   const goNext = useCallback(() => {
     const next = pickNext()
     if (next) {
       setCurrentWord(next)
+      savedWordId = next.id
     } else {
       setIsComplete(true)
     }
   }, [pickNext])
 
-  // Initialize session
+  // Initialize session - restore saved word or pick new one
   useEffect(() => {
     if (isInitializing.current) return
     isInitializing.current = true
 
-    seenWordIds.current.clear()
+    const allFiltered = getFilteredWords(mode)
+
+    // Try to restore saved word
+    if (savedWordId) {
+      const saved = allFiltered.find(w => w.id === savedWordId)
+      if (saved) {
+        setCurrentWord(saved)
+        setSessionStats(savedStats)
+        setIsComplete(false)
+        isInitializing.current = false
+        return
+      }
+    }
+
+    // No saved word - start fresh
+    seenWordIds.current = new Set()
+    savedSeenIds = seenWordIds.current
     retryQueue.current = []
+    savedRetryQueue = retryQueue.current
     bgGenerationTriggered.current = false
-    setSessionStats({ correct: 0, wrong: 0 })
+    const freshStats = { correct: 0, wrong: 0 }
+    setSessionStats(freshStats)
+    savedStats = freshStats
     setIsComplete(false)
     startSession()
 
-    const allFiltered = getFilteredWords(mode, selectedCategory)
     if (allFiltered.length > 0) {
       const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
       seenWordIds.current.add(first.id)
+      savedSeenIds = seenWordIds.current
       setCurrentWord(first)
+      savedWordId = first.id
     } else {
       setCurrentWord(null)
+      savedWordId = null
     }
 
     isInitializing.current = false
-  }, [mode, selectedCategory])
+  }, [mode])
 
   const handleKnown = () => {
     if (!currentWord) return
     updateProgress(currentWord.id, true)
     recordAnswer(true)
-    setSessionStats(s => ({ ...s, correct: s.correct + 1 }))
+    const newStats = { ...sessionStats, correct: sessionStats.correct + 1 }
+    setSessionStats(newStats)
+    savedStats = newStats
+    savedRetryQueue = retryQueue.current
     goNext()
   }
 
@@ -131,23 +153,32 @@ export function Learn() {
     if (!currentWord) return
     updateProgress(currentWord.id, false)
     recordAnswer(false)
-    setSessionStats(s => ({ ...s, wrong: s.wrong + 1 }))
+    const newStats = { ...sessionStats, wrong: sessionStats.wrong + 1 }
+    setSessionStats(newStats)
+    savedStats = newStats
     retryQueue.current.push(currentWord.id)
+    savedRetryQueue = retryQueue.current
     goNext()
   }
 
   const handleRestart = () => {
-    seenWordIds.current.clear()
+    seenWordIds.current = new Set()
+    savedSeenIds = seenWordIds.current
     retryQueue.current = []
+    savedRetryQueue = []
     bgGenerationTriggered.current = false
-    setSessionStats({ correct: 0, wrong: 0 })
+    const freshStats = { correct: 0, wrong: 0 }
+    setSessionStats(freshStats)
+    savedStats = freshStats
     setIsComplete(false)
     startSession()
-    const allFiltered = getFilteredWords(mode, selectedCategory)
+    const allFiltered = getFilteredWords(mode)
     if (allFiltered.length > 0) {
       const first = allFiltered[Math.floor(Math.random() * allFiltered.length)]
       seenWordIds.current.add(first.id)
+      savedSeenIds = seenWordIds.current
       setCurrentWord(first)
+      savedWordId = first.id
     }
   }
 
@@ -218,7 +249,7 @@ export function Learn() {
   return (
     <div className="px-4 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <Link to="/" className="flex items-center gap-2 text-[var(--color-text-muted)]">
           <ArrowLeft size={20} />
         </Link>
@@ -226,41 +257,7 @@ export function Learn() {
           已学 {total} 个
           {isGenerating && ' · 加载新词中...'}
         </span>
-        <div className="flex gap-2 text-sm">
-          <span className="text-green-500">{sessionStats.correct}</span>
-          <span className="text-[var(--color-text-muted)]">/</span>
-          <span className="text-red-500">{sessionStats.wrong}</span>
-        </div>
       </div>
-
-      {/* Category filter (only in normal mode) */}
-      {mode !== 'review' && (
-        <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 mb-4">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap ${
-              selectedCategory === 'all'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--color-surface-light)]'
-            }`}
-          >
-            全部
-          </button>
-          {categories.map(([key, name]) => (
-            <button
-              key={key}
-              onClick={() => setSelectedCategory(key)}
-              className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap ${
-                selectedCategory === key
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-surface-light)]'
-              }`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Flash Card */}
       {currentWord && (
