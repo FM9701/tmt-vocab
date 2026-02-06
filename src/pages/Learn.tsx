@@ -108,11 +108,26 @@ export function Learn() {
     setIsComplete(false)
     setCurrentWord(null)
     startSession()
-    // 取第一个词
+    // 取第一个词（如果没有词则先触发 AI 生成）
     const init = async () => {
-      const allFiltered = mode === 'review'
+      let allFiltered = mode === 'review'
         ? getAllWords().filter(w => getWordsToReview().includes(w.id))
         : getAllWords().filter(w => selectedCategory === 'all' || w.category === selectedCategory)
+
+      if (allFiltered.length === 0 && mode !== 'review') {
+        setIsLoadingAI(true)
+        try {
+          const catParam = selectedCategory === 'all' ? undefined : selectedCategory
+          await generateMoreWords(catParam as Category | undefined)
+          allFiltered = getAllWords().filter(
+            w => selectedCategory === 'all' || w.category === selectedCategory
+          )
+        } catch {
+          // AI generation failed
+        } finally {
+          setIsLoadingAI(false)
+        }
+      }
 
       if (allFiltered.length === 0) return
 

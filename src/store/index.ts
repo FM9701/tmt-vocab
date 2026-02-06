@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Word, UserProgress, StudySession, Category, StudyMode } from '../types'
-import { vocabulary } from '../data/vocabulary'
 import { calculateNextReview } from '../lib/spaced-repetition'
 import { loadProgressFromCloud, saveProgressToCloud, mergeProgress } from '../lib/sync'
 
@@ -130,7 +129,7 @@ export const useStore = create<AppState>()(
 
       isGenerating: false,
 
-      generateMoreWords: async (category?: Category | 'all', count = 10) => {
+      generateMoreWords: async (category?: Category | 'all', count = 30) => {
         const state = get()
         if (state.isGenerating) return []
 
@@ -172,7 +171,7 @@ export const useStore = create<AppState>()(
 
       getAllWords: () => {
         const state = get()
-        return [...vocabulary, ...state.generatedWords]
+        return state.generatedWords
       },
 
       // Progress
