@@ -1,4 +1,5 @@
-// Vercel Serverless Function for generating TMT vocabulary via DeepSeek API
+// Vercel Node.js Serverless Function for generating TMT vocabulary via DeepSeek API
+// Uses Node.js runtime for 60-second timeout (edge runtime only allows 25s)
 
 interface GenerateRequest {
   category?: string
@@ -6,33 +7,28 @@ interface GenerateRequest {
   existingWords?: string[]
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default async function handler(req: any, res: any) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Cache-Control', 'no-cache')
 
-export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders })
+    return res.status(200).end()
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
-    const { category, count = 8, existingWords = [] } = (await req.json()) as GenerateRequest
+    const { category, count = 8, existingWords = [] } = (req.body || {}) as GenerateRequest
 
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'DeepSeek API not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
+      return res.status(500).json({ error: 'DeepSeek API not configured' })
     }
 
     const categoryMap: Record<string, string> = {
@@ -104,10 +100,7 @@ Requirements:
     if (!response.ok) {
       const errorText = await response.text()
       console.error('DeepSeek API error:', response.status, errorText)
-      return new Response(JSON.stringify({ error: 'AI generation failed' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
+      return res.status(502).json({ error: 'AI generation failed' })
     }
 
     const result = await response.json() as {
@@ -116,10 +109,7 @@ Requirements:
 
     const content = result.choices?.[0]?.message?.content
     if (!content) {
-      return new Response(JSON.stringify({ error: 'Empty response from AI' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
+      return res.status(502).json({ error: 'Empty response from AI' })
     }
 
     let words
@@ -128,10 +118,7 @@ Requirements:
       words = JSON.parse(jsonStr)
     } catch {
       console.error('Failed to parse AI response:', content)
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
+      return res.status(502).json({ error: 'Failed to parse AI response' })
     }
 
     const timestamp = Date.now()
@@ -140,20 +127,10 @@ Requirements:
       id: `gen-${timestamp}-${i}`,
     }))
 
-    return new Response(JSON.stringify({ words: wordsWithIds }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        ...corsHeaders,
-      },
-    })
+    return res.status(200).json({ words: wordsWithIds })
   } catch (error) {
     console.error('Generate words error:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    })
+    return res.status(500).json({ error: 'Internal server error' })
   }
 }
 
