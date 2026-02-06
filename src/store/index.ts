@@ -129,7 +129,7 @@ export const useStore = create<AppState>()(
 
       isGenerating: false,
 
-      generateMoreWords: async (category?: Category | 'all', count = 30) => {
+      generateMoreWords: async (category?: Category | 'all', count = 8) => {
         const state = get()
         if (state.isGenerating) {
           console.log('[Store] generateMoreWords: already generating, skipping')

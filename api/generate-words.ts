@@ -3,37 +3,35 @@
 interface GenerateRequest {
   category?: string
   count?: number
-  existingWords?: string[] // word strings to avoid duplicates
+  existingWords?: string[]
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
+    return new Response(null, { status: 200, headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
   }
 
   try {
-    const { category, count = 10, existingWords = [] } = (await req.json()) as GenerateRequest
+    const { category, count = 8, existingWords = [] } = (await req.json()) as GenerateRequest
 
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'DeepSeek API not configured' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
 
@@ -50,7 +48,7 @@ export default async function handler(req: Request): Promise<Response> {
       ? `Focus on the category: ${categoryMap[category]}.`
       : 'Cover a mix of categories: earnings, ai-ml, semiconductor, cloud-saas, m7, conference.'
 
-    const existingList = existingWords.length > 0
+    const existingList = existingWords && existingWords.length > 0
       ? `\n\nDo NOT generate any of these words (already in the vocabulary): ${existingWords.join(', ')}`
       : ''
 
@@ -108,7 +106,7 @@ Requirements:
       console.error('DeepSeek API error:', response.status, errorText)
       return new Response(JSON.stringify({ error: 'AI generation failed' }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
 
@@ -120,11 +118,10 @@ Requirements:
     if (!content) {
       return new Response(JSON.stringify({ error: 'Empty response from AI' }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
 
-    // Parse the JSON from the response (handle markdown code blocks)
     let words
     try {
       const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -133,11 +130,10 @@ Requirements:
       console.error('Failed to parse AI response:', content)
       return new Response(JSON.stringify({ error: 'Failed to parse AI response' }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
 
-    // Add unique IDs
     const timestamp = Date.now()
     const wordsWithIds = words.map((w: Record<string, unknown>, i: number) => ({
       ...w,
@@ -148,19 +144,19 @@ Requirements:
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'no-cache',
+        ...corsHeaders,
       },
     })
   } catch (error) {
     console.error('Generate words error:', error)
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
   }
 }
 
 export const config = {
-  runtime: 'edge',
+  maxDuration: 60,
 }

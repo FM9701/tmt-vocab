@@ -147,6 +147,7 @@ export function Learn() {
     const init = async () => {
       try {
         let allFiltered = getFilteredWords(mode, selectedCategory)
+        let hasError = false
 
         // No words available, trigger AI generation
         if (allFiltered.length === 0 && mode !== 'review') {
@@ -170,6 +171,7 @@ export function Learn() {
           } catch (err) {
             console.error('[Learn] fetchNewWords error:', err)
             setErrorMsg('AI 生成词汇失败，请检查网络后重试')
+            hasError = true
           } finally {
             setIsLoadingAI(false)
           }
@@ -180,7 +182,7 @@ export function Learn() {
           seenWordIds.current.add(first.id)
           setCurrentWord(first)
           setErrorMsg(null)
-        } else if (mode !== 'review') {
+        } else if (!hasError && mode !== 'review') {
           setErrorMsg('无法获取词汇，请点击重试')
         }
       } catch (err) {
