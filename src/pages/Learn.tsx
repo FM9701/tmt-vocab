@@ -95,8 +95,13 @@ export function Learn() {
     try {
       const newWords = await fetchNewWords(selectedCategory)
       if (newWords.length > 0) {
-        // Re-read from store to get all words including newly added
-        const freshFiltered = getFilteredWords(mode, selectedCategory)
+        // Try store first, then fallback to returned words
+        let freshFiltered = getFilteredWords(mode, selectedCategory)
+        if (freshFiltered.length === 0) {
+          freshFiltered = newWords.filter(
+            (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
+          )
+        }
         const freshUnseen = freshFiltered.filter(w => !seenWordIds.current.has(w.id))
         if (freshUnseen.length > 0) {
           const word = freshUnseen[Math.floor(Math.random() * freshUnseen.length)]
@@ -150,9 +155,18 @@ export function Learn() {
           try {
             const result = await fetchNewWords(selectedCategory)
             console.log('[Learn] AI generated', result.length, 'words')
-            // Always re-read from store after generation
+
+            // Try reading from store first
             allFiltered = getFilteredWords(mode, selectedCategory)
-            console.log('[Learn] After generation, filtered words:', allFiltered.length)
+            console.log('[Learn] Store has', allFiltered.length, 'words after generation')
+
+            // If store read fails, use returned words directly as fallback
+            if (allFiltered.length === 0 && result.length > 0) {
+              console.log('[Learn] Store read empty, using returned words directly')
+              allFiltered = result.filter(
+                (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
+              )
+            }
           } catch (err) {
             console.error('[Learn] fetchNewWords error:', err)
             setErrorMsg('AI 生成词汇失败，请检查网络后重试')
@@ -167,7 +181,6 @@ export function Learn() {
           setCurrentWord(first)
           setErrorMsg(null)
         } else if (mode !== 'review') {
-          // Still no words after AI generation - show error
           setErrorMsg('无法获取词汇，请点击重试')
         }
       } catch (err) {
@@ -203,12 +216,19 @@ export function Learn() {
     try {
       const result = await fetchNewWords(selectedCategory)
       console.log('[Learn] Retry: AI generated', result.length, 'words')
-      const allFiltered = getFilteredWords(mode, selectedCategory)
-      console.log('[Learn] Retry: filtered words:', allFiltered.length)
-      if (allFiltered.length > 0) {
-        const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
-        const pool = unseen.length > 0 ? unseen : allFiltered
-        const word = pool[Math.floor(Math.random() * pool.length)]
+
+      // Try store first, fallback to returned words
+      let pool = getFilteredWords(mode, selectedCategory)
+      if (pool.length === 0 && result.length > 0) {
+        pool = result.filter(
+          (w: Word) => selectedCategory === 'all' || w.category === selectedCategory
+        )
+      }
+
+      if (pool.length > 0) {
+        const unseen = pool.filter(w => !seenWordIds.current.has(w.id))
+        const pick = unseen.length > 0 ? unseen : pool
+        const word = pick[Math.floor(Math.random() * pick.length)]
         seenWordIds.current.add(word.id)
         setCurrentWord(word)
       } else {
