@@ -17,7 +17,6 @@ export function Learn() {
     recordAnswer,
     startSession,
     getWordsToReview,
-    getAllWords,
     generateMoreWords,
     isGenerating,
   } = useStore()
@@ -33,14 +32,15 @@ export function Learn() {
   const categories = Object.entries(categoryNames) as [Category, string][]
 
   const getFilteredWords = useCallback(() => {
+    const words = useStore.getState().getAllWords()
     if (mode === 'review') {
       const reviewIds = getWordsToReview()
-      return getAllWords().filter(w => reviewIds.includes(w.id))
+      return words.filter(w => reviewIds.includes(w.id))
     }
-    return getAllWords().filter(
+    return words.filter(
       w => selectedCategory === 'all' || w.category === selectedCategory
     )
-  }, [mode, selectedCategory, getWordsToReview, getAllWords])
+  }, [mode, selectedCategory, getWordsToReview])
 
   // 取下一个词：30% 概率从 retryQueue 取，否则取新词
   const pickNextWord = useCallback(async (): Promise<Word | null> => {
@@ -110,16 +110,19 @@ export function Learn() {
     startSession()
     // 取第一个词（如果没有词则先触发 AI 生成）
     const init = async () => {
-      let allFiltered = mode === 'review'
-        ? getAllWords().filter(w => getWordsToReview().includes(w.id))
-        : getAllWords().filter(w => selectedCategory === 'all' || w.category === selectedCategory)
+      let allFiltered = useStore.getState().getAllWords().filter(
+        w => mode === 'review'
+          ? getWordsToReview().includes(w.id)
+          : selectedCategory === 'all' || w.category === selectedCategory
+      )
 
       if (allFiltered.length === 0 && mode !== 'review') {
         setIsLoadingAI(true)
         try {
           const catParam = selectedCategory === 'all' ? undefined : selectedCategory
           await generateMoreWords(catParam as Category | undefined)
-          allFiltered = getAllWords().filter(
+          // 重新从 store 获取最新数据
+          allFiltered = useStore.getState().getAllWords().filter(
             w => selectedCategory === 'all' || w.category === selectedCategory
           )
         } catch {
