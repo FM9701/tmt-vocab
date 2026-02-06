@@ -1,29 +1,32 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, ClipboardCheck, Bookmark, TrendingUp, Target } from 'lucide-react'
+import { BookOpen, ClipboardCheck, Bookmark, Target, CheckCircle, X, Volume2 } from 'lucide-react'
 import { useStore } from '../store'
-import { categoryNames, categoryColors, type Category } from '../types'
+import { categoryNames, categoryColors } from '../types'
+import { speak as ttsSpeak } from '../lib/tts'
 
 export function Home() {
   const {
     user,
     getTotalWordsLearned,
     getTodayWordsLearned,
-    getOverallMastery,
     getWordsToReview,
     getBookmarkedWords,
-    selectedCategory,
-    setSelectedCategory,
-    getAllWords
+    getAllWords,
+    progress
   } = useStore()
 
-  const allWords = getAllWords()
+  const [showMastered, setShowMastered] = useState(false)
+
   const wordsLearned = getTotalWordsLearned()
   const todayLearned = getTodayWordsLearned()
-  const mastery = getOverallMastery()
   const reviewCount = getWordsToReview().length
   const bookmarkCount = getBookmarkedWords().length
 
-  const categories = Object.entries(categoryNames) as [Category, string][]
+  // 已学会 = mastery >= 80
+  const allWords = getAllWords()
+  const masteredWords = allWords.filter(w => progress[w.id]?.mastery >= 80)
+  const masteredCount = masteredWords.length
 
   return (
     <div className="px-4 py-6 relative z-10">
@@ -54,17 +57,17 @@ export function Home() {
           </div>
         </div>
 
-        <div className="card neon-glow-subtle">
+        <button onClick={() => setShowMastered(true)} className="card neon-glow-subtle text-left">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-              <TrendingUp size={20} className="text-purple-500" />
+            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle size={20} className="text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-purple-400">{mastery}%</p>
-              <p className="text-xs text-[var(--color-text-muted)]">掌握程度</p>
+              <p className="text-2xl font-bold text-green-400">{masteredCount}</p>
+              <p className="text-xs text-[var(--color-text-muted)]">已学会</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Quick Actions */}
@@ -111,80 +114,64 @@ export function Home() {
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold mb-3">词汇分类</h2>
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all ${
-              selectedCategory === 'all'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--color-surface-light)] hover:bg-[var(--color-surface)]'
-            }`}
-          >
-            全部 ({allWords.length})
-          </button>
-          {categories.map(([key, name]) => {
-            const count = allWords.filter(w => w.category === key).length
-            return (
-              <button
-                key={key}
-                onClick={() => setSelectedCategory(key)}
-                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all ${
-                  selectedCategory === key
-                    ? 'text-white'
-                    : 'bg-[var(--color-surface-light)] hover:bg-[var(--color-surface)]'
-                }`}
-                style={selectedCategory === key ? {
-                  backgroundColor: categoryColors[key],
-                } : {}}
-              >
-                {name} ({count})
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Word List Preview */}
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-semibold">词汇预览</h2>
-          <Link to="/learn" className="text-sm text-[var(--color-primary)] hover:underline">
-            开始学习 →
-          </Link>
-        </div>
-        <div className="space-y-2">
-          {allWords
-            .filter(w => selectedCategory === 'all' || w.category === selectedCategory)
-            .slice(0, 5)
-            .map((word) => (
-              <div key={word.id} className="card py-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{word.word}</h3>
-                    <p className="text-sm text-[var(--color-text-muted)]">{word.definitionCn}</p>
-                  </div>
-                  <span
-                    className="text-xs px-2 py-1 rounded-full"
-                    style={{
-                      backgroundColor: categoryColors[word.category] + '20',
-                      color: categoryColors[word.category]
-                    }}
-                  >
-                    {categoryNames[word.category]}
-                  </span>
-                </div>
-              </div>
-            ))}
-        </div>
-      </div>
-
       {/* 底部 */}
       <div className="text-center mt-8 text-[var(--color-text-muted)] text-sm">
         <p>坚持学习，每天进步一点点</p>
       </div>
+
+      {/* 已学会弹窗 */}
+      {showMastered && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={() => setShowMastered(false)}>
+          <div
+            className="bg-[var(--color-surface)] w-full max-w-lg rounded-t-2xl max-h-[75vh] flex flex-col animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-[var(--color-surface-light)]">
+              <h2 className="text-lg font-semibold">已学会的词 ({masteredCount})</h2>
+              <button onClick={() => setShowMastered(false)} className="p-1">
+                <X size={20} className="text-[var(--color-text-muted)]" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              {masteredWords.length === 0 ? (
+                <p className="text-center text-[var(--color-text-muted)] py-8">
+                  还没有学会的词，继续加油！
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {masteredWords.map(word => (
+                    <div key={word.id} className="card py-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => ttsSpeak(word.word)}
+                            className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                          >
+                            <Volume2 size={16} />
+                          </button>
+                          <div>
+                            <h3 className="font-medium">{word.word}</h3>
+                            <p className="text-sm text-[var(--color-text-muted)]">{word.definitionCn}</p>
+                          </div>
+                        </div>
+                        <span
+                          className="text-xs px-2 py-1 rounded-full"
+                          style={{
+                            backgroundColor: categoryColors[word.category] + '20',
+                            color: categoryColors[word.category]
+                          }}
+                        >
+                          {categoryNames[word.category]}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
