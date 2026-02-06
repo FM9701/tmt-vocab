@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LogIn, LogOut, TrendingUp, Target, Calendar, Award, RefreshCw } from 'lucide-react'
 import { useStore } from '../store'
-import { vocabulary } from '../data/vocabulary'
 import { supabase, signInWithGoogle, signOut } from '../lib/supabase'
 
 export function Profile() {
@@ -15,7 +14,8 @@ export function Profile() {
     progress,
     syncWithCloud,
     isSyncing,
-    lastSyncTime
+    lastSyncTime,
+    getAllWords
   } = useStore()
 
   const [isSigningIn, setIsSigningIn] = useState(false)
@@ -80,13 +80,13 @@ export function Profile() {
     syncWithCloud()
   }
 
-  const totalWords = vocabulary.length
+  const allWords = getAllWords()
   const wordsLearned = getTotalWordsLearned()
   const mastery = getOverallMastery()
   const streakDays = getStreakDays()
 
   // Calculate category progress
-  const categoryProgress = vocabulary.reduce((acc, word) => {
+  const categoryProgress = allWords.reduce((acc, word) => {
     if (!acc[word.category]) {
       acc[word.category] = { total: 0, learned: 0 }
     }
@@ -167,7 +167,7 @@ export function Profile() {
               <Target size={20} className="text-blue-500" />
             </div>
             <div>
-              <p className="text-xl font-bold">{wordsLearned}/{totalWords}</p>
+              <p className="text-xl font-bold">{wordsLearned}</p>
               <p className="text-xs text-[var(--color-text-muted)]">已学习</p>
             </div>
           </div>

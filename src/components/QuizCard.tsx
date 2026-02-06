@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Volume2, Check, X } from 'lucide-react'
 import type { Word } from '../types'
-import { vocabulary } from '../data/vocabulary'
+import { useStore } from '../store'
 import { speak as ttsSpeak } from '../lib/tts'
 
 interface QuizCardProps {
@@ -16,6 +16,7 @@ interface Option {
 }
 
 export function QuizCard({ word, onAnswer }: QuizCardProps) {
+  const { getAllWords } = useStore()
   const [options, setOptions] = useState<Option[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
@@ -29,8 +30,9 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
   }, [word.example])
 
   useEffect(() => {
-    // Generate options
-    const wrongOptions = vocabulary
+    // Generate options from all available words
+    const allWords = getAllWords()
+    const wrongOptions = allWords
       .filter(w => w.id !== word.id && w.category === word.category)
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
@@ -39,6 +41,20 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
         text: w.definitionCn,
         isCorrect: false
       }))
+
+    // If not enough same-category words, fill from other categories
+    if (wrongOptions.length < 3) {
+      const moreOptions = allWords
+        .filter(w => w.id !== word.id && !wrongOptions.some(o => o.id === w.id))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3 - wrongOptions.length)
+        .map(w => ({
+          id: w.id,
+          text: w.definitionCn,
+          isCorrect: false
+        }))
+      wrongOptions.push(...moreOptions)
+    }
 
     const correctOption = {
       id: word.id,
@@ -56,7 +72,7 @@ export function QuizCard({ word, onAnswer }: QuizCardProps) {
       speak()
     }, 200)
     return () => clearTimeout(timer)
-  }, [word, speak])
+  }, [word, speak, getAllWords])
 
   const handleSelect = (optionId: string) => {
     if (showResult) return

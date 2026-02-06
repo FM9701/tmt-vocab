@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, RotateCcw } from 'lucide-react'
 import { QuizCard } from '../components/QuizCard'
 import { useStore } from '../store'
-import { vocabulary } from '../data/vocabulary'
 import type { Word } from '../types'
 import { categoryNames, type Category } from '../types'
 
@@ -13,7 +12,8 @@ export function Quiz() {
     setSelectedCategory,
     updateProgress,
     recordAnswer,
-    startSession
+    startSession,
+    getAllWords
   } = useStore()
 
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -24,10 +24,11 @@ export function Quiz() {
   const categories = Object.entries(categoryNames) as [Category, string][]
 
   const availableWords = useMemo(() => {
-    return vocabulary.filter(
+    const allWords = getAllWords()
+    return allWords.filter(
       w => selectedCategory === 'all' || w.category === selectedCategory
     )
-  }, [selectedCategory])
+  }, [selectedCategory, getAllWords])
 
   useEffect(() => {
     startQuiz()

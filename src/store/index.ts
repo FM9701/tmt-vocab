@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserProgress, StudySession, Category, StudyMode } from '../types'
+import type { Word, UserProgress, StudySession, Category, StudyMode } from '../types'
 import { vocabulary } from '../data/vocabulary'
 import { calculateNextReview } from '../lib/spaced-repetition'
 import { loadProgressFromCloud, saveProgressToCloud, mergeProgress } from '../lib/sync'
@@ -23,6 +23,13 @@ interface AppState {
   isSyncing: boolean
   lastSyncTime: string | null
   syncWithCloud: () => Promise<void>
+
+  // Generated words (AI)
+  generatedWords: Word[]
+  addGeneratedWords: (words: Word[]) => void
+  isGenerating: boolean
+  generateMoreWords: (category?: Category | 'all', count?: number) => Promise<Word[]>
+  getAllWords: () => Word[]
 
   // Study progress
   progress: Record<string, UserProgress>
@@ -110,6 +117,62 @@ export const useStore = create<AppState>()(
         } finally {
           set({ isSyncing: false })
         }
+      },
+
+      // Generated words
+      generatedWords: [],
+
+      addGeneratedWords: (words) => {
+        set((state) => ({
+          generatedWords: [...state.generatedWords, ...words]
+        }))
+      },
+
+      isGenerating: false,
+
+      generateMoreWords: async (category?: Category | 'all', count = 10) => {
+        const state = get()
+        if (state.isGenerating) return []
+
+        set({ isGenerating: true })
+
+        try {
+          const allWords = state.getAllWords()
+          const existingWords = allWords.map(w => w.word)
+
+          const response = await fetch('/api/generate-words', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              category: category || 'all',
+              count,
+              existingWords,
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to generate words')
+          }
+
+          const data = await response.json() as { words: Word[] }
+          const newWords = data.words || []
+
+          if (newWords.length > 0) {
+            get().addGeneratedWords(newWords)
+          }
+
+          return newWords
+        } catch (error) {
+          console.error('Generate words error:', error)
+          return []
+        } finally {
+          set({ isGenerating: false })
+        }
+      },
+
+      getAllWords: () => {
+        const state = get()
+        return [...vocabulary, ...state.generatedWords]
       },
 
       // Progress
@@ -249,10 +312,10 @@ export const useStore = create<AppState>()(
 
       getOverallMastery: () => {
         const state = get()
-        const progresses = Object.values(state.progress)
-        if (progresses.length === 0) return 0
-        const total = progresses.reduce((sum, p) => sum + p.mastery, 0)
-        return Math.round(total / vocabulary.length)
+        const learnedProgresses = Object.values(state.progress).filter(p => p.mastery > 0)
+        if (learnedProgresses.length === 0) return 0
+        const total = learnedProgresses.reduce((sum, p) => sum + p.mastery, 0)
+        return Math.round(total / learnedProgresses.length)
       },
 
       getStreakDays: () => {
@@ -286,7 +349,8 @@ export const useStore = create<AppState>()(
       name: 'tmt-vocab-storage',
       partialize: (state) => ({
         progress: state.progress,
-        selectedCategory: state.selectedCategory
+        selectedCategory: state.selectedCategory,
+        generatedWords: state.generatedWords
       })
     }
   )

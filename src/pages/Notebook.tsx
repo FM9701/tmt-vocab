@@ -2,16 +2,15 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Volume2, BookmarkX, Search } from 'lucide-react'
 import { useStore } from '../store'
-import { vocabulary } from '../data/vocabulary'
 import { categoryNames, categoryColors } from '../types'
 
 export function Notebook() {
-  const { getBookmarkedWords, toggleBookmark, getProgress } = useStore()
+  const { getBookmarkedWords, toggleBookmark, getProgress, getAllWords } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const bookmarkedIds = getBookmarkedWords()
-  const bookmarkedWords = vocabulary.filter(w => bookmarkedIds.includes(w.id))
+  const bookmarkedWords = getAllWords().filter(w => bookmarkedIds.includes(w.id))
 
   const filteredWords = bookmarkedWords.filter(w =>
     w.word.toLowerCase().includes(searchQuery.toLowerCase()) ||

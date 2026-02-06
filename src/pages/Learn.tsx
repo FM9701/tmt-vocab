@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, Shuffle } from 'lucide-react'
+import { ArrowLeft, Shuffle, Loader2 } from 'lucide-react'
 import { FlashCard } from '../components/FlashCard'
 import { useStore } from '../store'
-import { vocabulary } from '../data/vocabulary'
 import type { Word } from '../types'
 import { categoryNames, type Category } from '../types'
+
+const BATCH_SIZE = 10
 
 export function Learn() {
   const [searchParams] = useSearchParams()
@@ -17,44 +18,119 @@ export function Learn() {
     updateProgress,
     recordAnswer,
     startSession,
-    getWordsToReview
+    getWordsToReview,
+    getAllWords,
+    generateMoreWords,
+    isGenerating,
   } = useStore()
 
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [sessionWords, setSessionWords] = useState<Word[]>([])
+  const [currentBatch, setCurrentBatch] = useState<Word[]>([])
   const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0 })
   const [isComplete, setIsComplete] = useState(false)
+  const [isLoadingBatch, setIsLoadingBatch] = useState(false)
+
+  // Persistent across batches within this session
+  const seenWordIds = useRef(new Set<string>())
+  const retryQueue = useRef<string[]>([])
 
   const categories = Object.entries(categoryNames) as [Category, string][]
 
-  // Get words based on mode
-  const availableWords = useMemo(() => {
+  const getFilteredWords = useCallback(() => {
     if (mode === 'review') {
       const reviewIds = getWordsToReview()
-      return vocabulary.filter(w => reviewIds.includes(w.id))
+      return getAllWords().filter(w => reviewIds.includes(w.id))
     }
-
-    return vocabulary.filter(
+    return getAllWords().filter(
       w => selectedCategory === 'all' || w.category === selectedCategory
     )
-  }, [mode, selectedCategory, getWordsToReview])
+  }, [mode, selectedCategory, getWordsToReview, getAllWords])
 
-  // Initialize session
-  useEffect(() => {
-    shuffleAndStart()
-  }, [availableWords])
+  const prepareBatch = useCallback(async () => {
+    const allFiltered = getFilteredWords()
+    const unseen = allFiltered.filter(w => !seenWordIds.current.has(w.id))
 
-  const shuffleAndStart = () => {
-    const shuffled = [...availableWords].sort(() => Math.random() - 0.5)
-    setSessionWords(shuffled)
+    // If no unseen words and no retry queue, try AI generation
+    if (unseen.length === 0 && retryQueue.current.length === 0) {
+      if (mode === 'review') {
+        // Review mode: no AI generation, just mark complete
+        setIsComplete(true)
+        return
+      }
+
+      setIsLoadingBatch(true)
+      try {
+        const catParam = selectedCategory === 'all' ? undefined : selectedCategory
+        const newWords = await generateMoreWords(catParam as Category | undefined)
+        if (newWords.length === 0) {
+          setIsComplete(true)
+          return
+        }
+        // After generation, getAllWords() will include new words
+        // Recurse to build batch from newly available words
+        const freshFiltered = getAllWords().filter(
+          w => selectedCategory === 'all' || w.category === selectedCategory
+        )
+        const freshUnseen = freshFiltered.filter(w => !seenWordIds.current.has(w.id))
+        buildBatchFromUnseen(freshUnseen, allFiltered)
+      } catch {
+        setIsComplete(true)
+      } finally {
+        setIsLoadingBatch(false)
+      }
+      return
+    }
+
+    buildBatchFromUnseen(unseen, allFiltered)
+  }, [getFilteredWords, mode, selectedCategory, generateMoreWords, getAllWords])
+
+  const buildBatchFromUnseen = (unseen: Word[], allFiltered: Word[]) => {
+    // Shuffle and take up to BATCH_SIZE new words
+    const shuffled = [...unseen].sort(() => Math.random() - 0.5)
+    const batch = shuffled.slice(0, BATCH_SIZE)
+
+    // Insert 1-2 retry words at random positions
+    const retryCount = Math.min(2, retryQueue.current.length)
+    if (retryCount > 0) {
+      const retryIds = retryQueue.current.splice(0, retryCount)
+      for (const retryId of retryIds) {
+        const retryWord = allFiltered.find(w => w.id === retryId)
+        if (retryWord) {
+          const insertPos = Math.floor(Math.random() * (batch.length + 1))
+          batch.splice(insertPos, 0, retryWord)
+        }
+      }
+    }
+
+    // Mark all batch words as seen
+    for (const w of batch) {
+      seenWordIds.current.add(w.id)
+    }
+
+    setCurrentBatch(batch)
     setCurrentIndex(0)
+  }
+
+  // Initialize session on mount or when filter changes
+  useEffect(() => {
+    seenWordIds.current.clear()
+    retryQueue.current = []
     setSessionStats({ correct: 0, wrong: 0 })
     setIsComplete(false)
     startSession()
+    prepareBatch()
+  }, [mode, selectedCategory])
+
+  const shuffleCurrentBatch = () => {
+    const shuffled = [...currentBatch].sort(() => Math.random() - 0.5)
+    setCurrentBatch(shuffled)
+    setCurrentIndex(0)
   }
 
-  const currentWord = sessionWords[currentIndex]
-  const progress = currentIndex / sessionWords.length * 100
+  const currentWord = currentBatch[currentIndex]
+  const progress = currentBatch.length > 0
+    ? ((currentIndex + 1) / currentBatch.length) * 100
+    : 0
 
   const handleKnown = () => {
     if (!currentWord) return
@@ -69,18 +145,48 @@ export function Learn() {
     updateProgress(currentWord.id, false)
     recordAnswer(false)
     setSessionStats(s => ({ ...s, wrong: s.wrong + 1 }))
+    // Push to retry queue for later
+    retryQueue.current.push(currentWord.id)
     goNext()
   }
 
   const goNext = () => {
-    if (currentIndex < sessionWords.length - 1) {
+    if (currentIndex < currentBatch.length - 1) {
       setCurrentIndex(currentIndex + 1)
     } else {
-      setIsComplete(true)
+      // Current batch finished, prepare next batch
+      prepareBatch()
     }
   }
 
-  if (sessionWords.length === 0) {
+  const handleRestart = () => {
+    seenWordIds.current.clear()
+    retryQueue.current = []
+    setSessionStats({ correct: 0, wrong: 0 })
+    setIsComplete(false)
+    startSession()
+    prepareBatch()
+  }
+
+  // Loading state (AI generating or preparing batch)
+  if (isLoadingBatch || (isGenerating && currentBatch.length === 0)) {
+    return (
+      <div className="px-4 py-6">
+        <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
+          <ArrowLeft size={20} />
+          返回
+        </Link>
+        <div className="text-center py-12">
+          <Loader2 size={40} className="animate-spin mx-auto mb-4 text-[var(--color-primary)]" />
+          <p className="text-[var(--color-text-muted)]">
+            AI 正在生成新词汇...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (currentBatch.length === 0 && !isComplete) {
     return (
       <div className="px-4 py-6">
         <Link to="/" className="flex items-center gap-2 mb-6 text-[var(--color-text-muted)]">
@@ -109,9 +215,9 @@ export function Learn() {
           <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🎉</span>
           </div>
-          <h2 className="text-2xl font-bold mb-2">学习完成！</h2>
+          <h2 className="text-2xl font-bold mb-2">全部学完！</h2>
           <p className="text-[var(--color-text-muted)] mb-6">
-            本轮学习了 {total} 个单词
+            本次学习了 {total} 个单词
           </p>
 
           <div className="grid grid-cols-3 gap-4 mb-8">
@@ -130,7 +236,7 @@ export function Learn() {
           </div>
 
           <div className="flex gap-4">
-            <button onClick={shuffleAndStart} className="btn btn-primary flex-1">
+            <button onClick={handleRestart} className="btn btn-primary flex-1">
               再来一轮
             </button>
             <Link to="/" className="btn btn-secondary flex-1">
@@ -150,9 +256,10 @@ export function Learn() {
           <ArrowLeft size={20} />
         </Link>
         <span className="text-sm text-[var(--color-text-muted)]">
-          {currentIndex + 1} / {sessionWords.length}
+          {currentIndex + 1} / {currentBatch.length}
+          {isGenerating && ' (生成中...)'}
         </span>
-        <button onClick={shuffleAndStart} className="p-2">
+        <button onClick={shuffleCurrentBatch} className="p-2">
           <Shuffle size={20} className="text-[var(--color-text-muted)]" />
         </button>
       </div>
