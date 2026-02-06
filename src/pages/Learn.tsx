@@ -37,6 +37,7 @@ export function Learn() {
   const retryQueue = useRef(savedRetryQueue)
   const isInitializing = useRef(false)
   const bgGenerationTriggered = useRef(false)
+  const lastShownId = useRef<string | null>(null)
 
   // Background AI generation
   const triggerBackgroundGeneration = useCallback(() => {
@@ -47,14 +48,21 @@ export function Learn() {
     store.generateMoreWords().catch(() => {})
   }, [])
 
+  // Count remaining unseen words
+  const allFiltered = getFilteredWords(mode)
+  const remainingCount = allFiltered.filter(w => !seenWordIds.current.has(w.id)).length
+
   const pickNext = useCallback((): Word | null => {
     const allFiltered = getFilteredWords(mode)
 
-    // 30% chance to retry a missed word
+    // 30% chance to retry a missed word (but never the one just shown)
     if (retryQueue.current.length > 0 && Math.random() < 0.3) {
-      const retryId = retryQueue.current.shift()!
-      const word = allFiltered.find(w => w.id === retryId)
-      if (word) return word
+      const idx = retryQueue.current.findIndex(id => id !== lastShownId.current)
+      if (idx !== -1) {
+        const retryId = retryQueue.current.splice(idx, 1)[0]
+        const word = allFiltered.find(w => w.id === retryId)
+        if (word) return word
+      }
     }
 
     // Pick an unseen word
@@ -73,9 +81,13 @@ export function Learn() {
       return word
     }
 
-    // Drain remaining retry queue
-    if (retryQueue.current.length > 0) {
+    // Drain remaining retry queue (skip the just-shown word)
+    while (retryQueue.current.length > 0) {
       const retryId = retryQueue.current.shift()!
+      if (retryId === lastShownId.current && retryQueue.current.length > 0) {
+        retryQueue.current.push(retryId) // put it back at end
+        continue
+      }
       const word = allFiltered.find(w => w.id === retryId)
       if (word) return word
     }
@@ -88,6 +100,7 @@ export function Learn() {
     if (next) {
       setCurrentWord(next)
       savedWordId = next.id
+      lastShownId.current = next.id
     } else {
       setIsComplete(true)
     }
@@ -105,6 +118,7 @@ export function Learn() {
       const saved = allFiltered.find(w => w.id === savedWordId)
       if (saved) {
         setCurrentWord(saved)
+        lastShownId.current = saved.id
         setSessionStats(savedStats)
         setIsComplete(false)
         isInitializing.current = false
@@ -130,6 +144,7 @@ export function Learn() {
       savedSeenIds = seenWordIds.current
       setCurrentWord(first)
       savedWordId = first.id
+      lastShownId.current = first.id
     } else {
       setCurrentWord(null)
       savedWordId = null
@@ -167,6 +182,7 @@ export function Learn() {
     retryQueue.current = []
     savedRetryQueue = []
     bgGenerationTriggered.current = false
+    lastShownId.current = null
     const freshStats = { correct: 0, wrong: 0 }
     setSessionStats(freshStats)
     savedStats = freshStats
@@ -179,6 +195,7 @@ export function Learn() {
       savedSeenIds = seenWordIds.current
       setCurrentWord(first)
       savedWordId = first.id
+      lastShownId.current = first.id
     }
   }
 
@@ -194,7 +211,7 @@ export function Learn() {
         </Link>
         <div className="text-center py-12">
           <p className="text-[var(--color-text-muted)]">
-            {mode === 'review' ? '没有需要复习的单词' : '该分类暂无单词'}
+            {mode === 'review' ? '没有需要复习的单词' : '暂无单词'}
           </p>
           <Link to="/" className="btn btn-primary mt-4">
             返回首页
@@ -254,8 +271,8 @@ export function Learn() {
           <ArrowLeft size={20} />
         </Link>
         <span className="text-sm text-[var(--color-text-muted)]">
-          已学 {total} 个
-          {isGenerating && ' · 加载新词中...'}
+          剩余 {remainingCount} 个
+          {isGenerating && ' · 加载中...'}
         </span>
       </div>
 
