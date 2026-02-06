@@ -99,7 +99,7 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
             </div>
 
             <p className="text-center text-sm text-[var(--color-text-muted)]">
-              点击卡片查看释义
+              👆 点击卡片进入颠倒世界 👆
             </p>
           </div>
 
@@ -154,19 +154,19 @@ export function FlashCard({ word, onKnown, onUnknown }: FlashCardProps) {
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - 怪奇物语风格 */}
       <div className="flex gap-4 mt-6">
         <button
           onClick={handleUnknown}
           className="btn btn-danger flex-1"
         >
-          不认识
+          🌺 不认识
         </button>
         <button
           onClick={handleKnown}
           className="btn btn-success flex-1"
         >
-          认识
+          ⚡ 认识
         </button>
       </div>
     </div>

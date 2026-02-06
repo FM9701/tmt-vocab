@@ -1,17 +1,28 @@
 @import "tailwindcss";
 
+/* 怪奇物语主题 - Stranger Things Theme */
 :root {
-  --color-primary: #1e40af;
-  --color-primary-light: #3b82f6;
-  --color-secondary: #7c3aed;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-light: #334155;
-  --color-text: #f1f5f9;
-  --color-text-muted: #94a3b8;
+  --color-primary: #e50914;
+  --color-primary-light: #ff1a1a;
+  --color-secondary: #8b5cf6;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #dc2626;
+  --color-background: #0a0a0a;
+  --color-surface: #1a1a1a;
+  --color-surface-light: #2a2a2a;
+  --color-text: #f5f5f5;
+  --color-text-muted: #a1a1a1;
+  --color-neon-red: #ff0040;
+  --color-neon-pink: #ff00ff;
+  --color-neon-blue: #00d4ff;
+}
+
+@font-face {
+  font-family: 'Stranger';
+  src: url('https://fonts.cdnfonts.com/s/14357/Benguiat Bold BT.woff') format('woff');
+  font-weight: bold;
+  font-display: swap;
 }
 
 * {
@@ -32,6 +43,10 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse at top, rgba(229, 9, 20, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+  background-attachment: fixed;
 }
 
 #root {
@@ -39,6 +54,48 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* 怪奇物语标题样式 */
+.stranger-title {
+  font-family: 'Stranger', 'Times New Roman', serif;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-neon-red);
+  text-shadow:
+    0 0 10px var(--color-neon-red),
+    0 0 20px var(--color-neon-red),
+    0 0 40px var(--color-neon-red),
+    0 0 80px var(--color-primary);
+  animation: flicker 3s infinite alternate;
+}
+
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow:
+      0 0 10px var(--color-neon-red),
+      0 0 20px var(--color-neon-red),
+      0 0 40px var(--color-neon-red),
+      0 0 80px var(--color-primary);
+  }
+  20%, 24%, 55% {
+    text-shadow: none;
+  }
+}
+
+/* 霓虹发光效果 */
+.neon-glow {
+  box-shadow:
+    0 0 5px var(--color-neon-red),
+    0 0 10px var(--color-neon-red),
+    0 0 20px var(--color-primary),
+    inset 0 0 10px rgba(229, 9, 20, 0.1);
+}
+
+.neon-glow-subtle {
+  box-shadow:
+    0 0 5px rgba(229, 9, 20, 0.3),
+    0 0 10px rgba(229, 9, 20, 0.2);
 }
 
 /* Safe area for iOS */
@@ -50,7 +107,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - 怪奇物语风格 */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -60,8 +117,9 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-surface-light);
+  background: var(--color-primary);
   border-radius: 3px;
+  box-shadow: 0 0 5px var(--color-neon-red);
 }
 
 /* Button base styles */
@@ -73,46 +131,144 @@ body {
   font-size: 1rem;
   font-weight: 500;
   border-radius: 0.75rem;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+
+.btn:hover::before {
+  transform: translateX(100%);
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #b91c1c 100%);
   color: white;
+  border-color: var(--color-neon-red);
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: var(--color-primary-light);
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.5);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
   background-color: var(--color-surface-light);
   color: var(--color-text);
+  border-color: var(--color-surface-light);
 }
 
 .btn-secondary:hover {
-  background-color: #475569;
+  background-color: #3a3a3a;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.2);
 }
 
 .btn-success {
-  background-color: var(--color-success);
+  background: linear-gradient(135deg, var(--color-success) 0%, #16a34a 100%);
   color: white;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+.btn-success:hover {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
 }
 
 .btn-danger {
-  background-color: var(--color-danger);
+  background: linear-gradient(135deg, var(--color-danger) 0%, #991b1b 100%);
   color: white;
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
 }
 
-/* Card styles */
+.btn-danger:hover {
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+}
+
+/* Card styles - 怪奇物语风格 */
 .card {
-  background-color: var(--color-surface);
+  background: linear-gradient(135deg, var(--color-surface) 0%, #151515 100%);
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(229, 9, 20, 0.2);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: rgba(229, 9, 20, 0.4);
+  box-shadow:
+    0 8px 25px -5px rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(229, 9, 20, 0.1);
+}
+
+/* Q版怪物装饰 */
+.monster-demogorgon::before {
+  content: '🌸';
+  font-size: 1.5rem;
+}
+
+.monster-mind-flayer::before {
+  content: '🕷️';
+  font-size: 1.5rem;
+}
+
+.monster-demodog::before {
+  content: '🐕';
+  font-size: 1.5rem;
+}
+
+/* 颠倒世界粒子效果 */
+.upside-down-particles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--color-neon-red);
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: float 15s infinite;
+  box-shadow: 0 0 6px var(--color-neon-red);
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(100vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(720deg);
+    opacity: 0;
+  }
 }
 
 /* Animation classes */
@@ -143,6 +299,15 @@ body {
   }
 }
 
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--color-neon-red), 0 0 10px var(--color-neon-red);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--color-neon-red), 0 0 30px var(--color-neon-red);
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease;
 }
@@ -153,6 +318,10 @@ body {
 
 .animate-flip-in {
   animation: flipIn 0.4s ease;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
 }
 
 /* Flip card */
@@ -183,4 +352,27 @@ body {
 
 .flip-card-back {
   transform: rotateY(180deg);
+}
+
+/* 怪奇物语特殊元素 */
+.stranger-border {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+    linear-gradient(135deg, var(--color-neon-red), var(--color-secondary), var(--color-neon-red)) border-box;
+}
+
+/* 复古电视扫描线效果 */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
 }
