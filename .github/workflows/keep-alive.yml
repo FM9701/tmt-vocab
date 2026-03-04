@@ -1,0 +1,28 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Every 3 days at 08:00 UTC
+    - cron: '0 8 */3 * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: https://rgtymeqadklyikmxjsok.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJndHltZXFhZGtseWlrbXhqc29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NjAwNDMsImV4cCI6MjA4NTUzNjA0M30.3lLOOXki3VlOhDg2IjLaolVeyCj4aKdDHaxI6by6d_A
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "Supabase responded with HTTP $response"
+          if [ "$response" -ge 200 ] && [ "$response" -lt 300 ]; then
+            echo "Supabase is alive!"
+          else
+            echo "Warning: unexpected response code $response"
+            exit 1
+          fi
