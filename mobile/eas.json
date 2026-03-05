@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 15.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rgtymeqadklyikmxjsok.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJndHltZXFhZGtseWlrbXhqc29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NjAwNDMsImV4cCI6MjA4NTUzNjA0M30.3lLOOXki3VlOhDg2IjLaolVeyCj4aKdDHaxI6by6d_A"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6759999654"
+      }
+    }
+  }
+}
