@@ -1,13 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  FadeIn,
-  SlideInRight,
-} from 'react-native-reanimated'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -386,7 +379,7 @@ export default function Learn() {
 
         {/* Flash Card with entrance animation */}
         {currentWord && (
-          <Animated.View key={cardKey} entering={SlideInRight.duration(300).springify()}>
+          <Animated.View key={cardKey} entering={FadeIn.duration(250)}>
             <FlashCard
               word={currentWord}
               onKnown={handleKnown}
